@@ -394,3 +394,42 @@ impl Default for Board {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_starting_position() {
+        let board = Board::new();
+        
+        let king_pos = Position::from_algebraic("e1").unwrap();
+        let king = board.get_piece(king_pos).unwrap();
+        assert_eq!(king.piece_type, PieceType::King);
+        assert_eq!(king.color, Color::White);
+        
+        let pawn_pos = Position::from_algebraic("e2").unwrap();
+        let pawn = board.get_piece(pawn_pos).unwrap();
+        assert_eq!(pawn.piece_type, PieceType::Pawn);
+        assert_eq!(pawn.color, Color::White);
+    }
+
+    #[test]
+    fn test_fen_generation() {
+        let board = Board::new();
+        let fen = board.to_fen();
+        assert!(fen.starts_with("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"));
+    }
+
+    #[test]
+    fn test_path_clear() {
+        let board = Board::new();
+
+        let rook_pos = Position::from_algebraic("a1").unwrap();
+        let target_pos = Position::from_algebraic("a3").unwrap();
+        assert!(!board.is_path_clear(rook_pos, target_pos));
+
+        let empty_board = Board::empty();
+        assert!(empty_board.is_path_clear(rook_pos, target_pos));
+    }
+}
