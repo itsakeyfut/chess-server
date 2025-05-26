@@ -235,3 +235,40 @@ impl Move {
         Some(chess_move)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_position_algebraic() {
+        let pos = Position::new(0, 0).unwrap();
+        assert_eq!(pos.to_algebraic(), "a1");
+
+        let pos = Position::from_algebraic("e4").unwrap();
+        assert_eq!(pos.file, 4);
+        assert_eq!(pos.rank, 3);
+    }
+
+    #[test]
+    fn test_piece_fen_conversion() {
+        let piece = Piece::new(PieceType::King, Color::White);
+        assert_eq!(piece.to_fen_char(), 'K');
+
+        let piece = Piece::from_fen_char('k').unwrap();
+        assert_eq!(piece.piece_type, PieceType::King);
+        assert_eq!(piece.color, Color::Black);
+    }
+
+    #[test]
+    fn test_move_algebraic() {
+        let from = Position::from_algebraic("e2").unwrap();
+        let to = Position::from_algebraic("e4").unwrap();
+        let chess_move = Move::new(from, to);
+
+        assert_eq!(chess_move.to_algebraic(), "e2e4");
+
+        let parsed_move = Move::from_algebraic("e2e4q").unwrap();
+        assert_eq!(parsed_move.promotion, Some(PieceType::Queen));
+    }
+}
