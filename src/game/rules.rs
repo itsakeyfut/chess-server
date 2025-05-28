@@ -285,4 +285,38 @@ impl MoveValidator {
             true
         }
     }
+
+    pub fn generate_legal_moves(board: &Board) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let current_color = board.get_to_move();
+
+        for rank in 0..8 {
+            for file in 0..8 {
+                let from = Position::new(file, rank).unwrap();
+                if let Some(piece) = board.get_piece(from) {
+                    if piece.color == current_color {
+                        let piece_moves = Self::generate_piece_moves(board, from, &piece);
+                        for chess_move in piece_moves {
+                            if Self::is_valid_move(board, &chess_move) {
+                                moves.push(chess_move);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        moves
+    }
+
+    fn generate_piece_moves(board: &Board, from: Position, piece: &Piece) {
+        match piece.piece_type {
+            PieceType::Pawn => Self::generate_pawn_moves(board, from, piece),
+            PieceType::Rook => Self::generate_rook_moves(board, from),
+            PieceType::Knight => Self::generate_knight_moves(from),
+            PieceType::Bishop => Self::generate_bishop_moves(board, from),
+            PieceType::Queen => Self::generate_queen_moves(board, from),
+            PieceType::King => Self::generate_king_moves(board, from, piece),
+        }
+    }
 }
