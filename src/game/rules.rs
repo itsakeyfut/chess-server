@@ -319,4 +319,60 @@ impl MoveValidator {
             PieceType::King => Self::generate_king_moves(board, from, piece),
         }
     }
+
+    fn generate_pawn_moves(board: &Board, from: Position, piece: &Piece) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let direction = match piece.color {
+            Color::White => 1,
+            Color::Black => -1,
+        };
+
+        // Normal move
+        if let Some(to) = Position::new(from.file, (from.rank as i8 + direction) as u8) {
+            if board.is_empty(to) {
+                if (piece.color == Color::White && to.rank == 7) ||
+                    (piece.color == Color::Black && to.rank == 0) {
+                    moves.push(Move::with_promotion(from, to, PieceType::Queen));
+                    moves.push(Move::with_promotion(from, to, PieceType::Rook));
+                    moves.push(Move::with_promotion(from, to, PieceType::Bishop));
+                    moves.push(Move::with_promotion(from, to, PieceType::Knight));
+                } else {
+                    moves.push(Move::new(from, to));
+                }
+
+                if !piece.has_moved {
+                    if let Some(to2) = Position::new(from.file, (from.rank as i8 + 2 * direction) as u8) {
+                        if board.is_empty(to2) {
+                            moves.push(Move::new(from, to2));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Attack
+        for file_offset in [-1, 1] {
+            if let Some(to) = Position::new((from.file as i8 + file_offset) as u8, (from.rank as i8 + direction) as u8) {
+                if board.is_occupied_by(to, piece.color.opposite()) {
+                    if (piece.color == Color::White && to.rank == 7) ||
+                        (piece.color == Color::Black && to.rank == 0) {
+                        moves.push(Move::with_promotion(from, to, PieceType::Queen));
+                        moves.push(Move::with_promotion(from, to, PieceType::Rook));
+                        moves.push(Move::with_promotion(from, to, PieceType::Bishop));
+                        moves.push(Move::with_promotion(from, to, PieceType::Knight));
+                    } else {
+                        moves.push(Move::new(from, to));
+                    }
+                }
+
+                if let Some(en_passant_target) = board.get_en_passant_target() {
+                    if to == en_passant_target {
+                        moves.push(Move::en_passant(from, to));
+                    }
+                }
+            }
+        }
+
+        moves
+    }
 }
