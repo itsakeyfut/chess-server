@@ -545,3 +545,64 @@ impl Default for GameManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::Position;
+
+    #[test]
+    fn test_game_creation() {
+        let mut manager = GameManager::new();
+        let game_id = manager.create_game();
+
+        assert!(manager.get_game(&game_id).is_some());
+    }
+
+    #[test]
+    fn test_player_joining() {
+        let mut manager = GameManager::new();
+        let game_id = manager.create_game();
+
+        let color1 = manager.join_game(&game_id, "player1".to_string(), None).unwrap();
+        let color2 = manager.join_game(&game_id, "player2".to_string(), None).unwrap();
+
+        assert_ne!(color1, color2);
+
+        let game = manager.get_game(&game_id).unwrap();
+        assert!(game.is_ready_to_start());
+    }
+
+    #[test]
+    fn test_make_move() {
+        let mut manager = GameManager::new();
+        let game_id = manager.create_game();
+
+        manager.join_game(&game_id, "white_player".to_string(), Some(Color::White)).unwrap();
+        manager.join_game(&game_id, "black_player".to_string(), Some(Color::Black)).unwrap();
+
+        let from = Position::from_algebraic("e2").unwrap();
+        let to = Position::from_algebraic("e4").unwrap();
+        let chess_move = Move::new(from, to);
+
+        assert!(manager.make_move(&game_id, "white_player", chess_move).is_ok());
+
+        let game = manager.get_game(&game_id).unwrap();
+        assert_eq!(game.get_move_count(), 1);
+        assert_eq!(game.board.get_to_move(), Color::Black);
+    }
+
+    #[test]
+    fn test_invalid_move() {
+        let mut manager = GameManager::new();
+        let game_id = manager.create_game();
+
+        manager.join_game(&game_id, "white_player".to_string(), Some(Color::White)).unwrap();
+
+        let from = Position::from_algebraic("e2").unwrap();
+        let to = Position::from_algebraic("e5").unwrap();
+        let chess_move = Move::new(from, to);
+
+        assert!(manager.make_move(&game_id, "white_player", chess_move).is_err());
+    }
+}
