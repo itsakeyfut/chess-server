@@ -503,4 +503,16 @@ impl MoveValidator {
 
         moves
     }
+
+    pub fn is_checkmate(board: &Board) -> bool {
+        Self::is_in_check(board, board.get_to_move()) && Self::generate_legal_moves(board).is_empty()
+    }
+
+    pub fn is_stalemate(board: &Board) -> bool {
+        !Self::is_in_check(board, board.get_to_move()) && Self::generate_legal_moves(board).is_empty()
+    }
+
+    pub fn is_draw_by_fifty_move_rule(board: &Board) -> bool {
+        board.get_halfmove_clock() >= 50
+    }
 }
