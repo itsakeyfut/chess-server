@@ -448,4 +448,10 @@ impl MoveValidator {
 
         moves
     }
+
+    fn generate_queen_moves(board: &Board, from: Position) -> Vec<Move> {
+        let mut moves = Self::generate_rook_moves(board, from);
+        moves.extend(Self::generate_bishop_moves(board, from));
+        moves
+    }
 }
