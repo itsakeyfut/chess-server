@@ -309,7 +309,7 @@ impl MoveValidator {
         moves
     }
 
-    fn generate_piece_moves(board: &Board, from: Position, piece: &Piece) {
+    fn generate_piece_moves(board: &Board, from: Position, piece: &Piece) -> Vec<Move> {
         match piece.piece_type {
             PieceType::Pawn => Self::generate_pawn_moves(board, from, piece),
             PieceType::Rook => Self::generate_rook_moves(board, from),
