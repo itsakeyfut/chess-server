@@ -402,4 +402,23 @@ impl MoveValidator {
 
         moves
     }
+
+    fn generate_knight_moves(from: Position) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let knight_moves = [
+            (2, 1), (2, -1), (-2, 1), (-2, -1),
+            (1, 2), (1, -2), (-1, 2), (-1, -2),
+        ];
+
+        for (file_offset, rank_offset) in knight_moves {
+            let new_file = from.file as i8 + file_offset;
+            let new_rank = from.rank as i8 + rank_offset;
+
+            if let Some(to) = Position::new(new_file as u8, new_rank as u8) {
+                moves.push(Move::new(from, to));
+            }
+        }
+
+        moves
+    }
 }
