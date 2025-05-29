@@ -375,4 +375,31 @@ impl MoveValidator {
 
         moves
     }
+
+    fn generate_rook_moves(board: &Board, from: Position) -> Vec<Move> {
+        let mut moves = Vec::new();
+        let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+
+        for (file_dir, rank_dir) in directions {
+            for distance in 1..8 {
+                let new_file = from.file as i8 + file_dir * distance;
+                let new_rank = from.rank as i8 + rank_dir * distance;
+
+                if let Some(to) = Position::new(new_file as u8, new_rank as u8) {
+                    if board.is_empty(to) {
+                        moves.push(Move::new(from, to));
+                    } else {
+                        if board.is_occupied_by(to, board.get_piece(from).unwrap().color.opposite()) {
+                            moves.push(Move::new(from, to));
+                        }
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        moves
+    }
 }
