@@ -516,3 +516,47 @@ impl MoveValidator {
         board.get_halfmove_clock() >= 50
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::Board;
+
+    #[test]
+    fn test_pawn_moves() {
+        let board = Board::new();
+        let from = Position::from_algebraic("e2").unwrap();
+        let to = Position::from_algebraic("e4").unwrap();
+        let chess_move = Move::new(from, to);
+
+        assert!(MoveValidator::is_valid_move(&board, &chess_move));
+    }
+
+    #[test]
+    fn test_illegal_move() {
+        let board = Board::new();
+        let from = Position::from_algebraic("e2").unwrap();
+        let to = Position::from_algebraic("e5").unwrap(); // triple move not permitted
+        let chess_move = Move::new(from, to);
+
+        assert!(!MoveValidator::is_valid_move(&board, &chess_move));
+    }
+
+    #[test]
+    fn test_knight_moves() {
+        let board = Board::new();
+        let from = Position::from_algebraic("b1").unwrap();
+        let to = Position::from_algebraic("c3").unwrap();
+        let chess_move = Move::new(from, to);
+
+        assert!(MoveValidator::is_valid_move(&board, &chess_move));
+    }
+
+    #[test]
+    fn test_legal_moves_generation() {
+        let board = Board::new();
+        let moves = MoveValidator::generate_legal_moves(&board);
+
+        assert_eq!(moves.len(), 20);
+    }
+}
