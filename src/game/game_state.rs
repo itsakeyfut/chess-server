@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -423,3 +425,75 @@ impl Default for GameState {
     }
 }
 
+#[derive(Debug)]
+pub struct GameManager {
+    games: HashMap<String, GameState>,
+    player_games: HashMap<String, Vec<String>>, // Player ID -> its list
+}
+
+impl GameManager {
+    pub fn new() -> Self {
+        Self {
+            games: HashMap::new(),
+            player_games: HashMap::new(),
+        }
+    }
+
+    pub fn create_game(&mut self) -> String {
+        let game = GameState::new();
+        let game_id = game.id.clone();
+        self.games.insert(game_id.clone(), game);
+        game_id
+    }
+
+    pub fn join_game(&mut self, game_id: &str, player_id: String, color: Option<Color>) -> Result<Color, String> {
+        let game = self.games.get_mut(game_id)
+            .ok_or("Game not found")?;
+
+        let assigned_color = game.add_player(player_id.clone(), color)?;
+
+        self.player_games.entry(player_id)
+            .or_insert_with(Vec::new)
+            .push(game_id.to_string());
+
+        Ok(assigned_color)
+    }
+
+    pub fn leave_game(&mut self, game_id: &str, player_id: &str) -> Result<(), String> {
+        let game = self.games.get_mut(game_id)
+            .ok_or("Game not found")?;
+
+        game.remove_player(player_id);
+
+        if let Some(player_games) = self.player_games.get_mut(player_id) {
+            player_games.retain(|id| id != game_id);
+        }
+
+        Ok(())
+    }
+
+    pub fn make_move(&mut self, game_id: &str, player_id: &str, chess_move: Move) -> Result<(), String> {
+        let game = self.games.get_mut(game_id)
+            .ok_or("Game not found")?;
+
+        game.make_move(player_id, chess_move)
+    }
+
+    pub fn get_game(&self, game_id: &str) -> Option<&GameState> {
+        self.games.get(game_id)
+    }
+
+    pub fn get_game_mut(&mut self, game_id: &str) -> Option<&mut GameState> {
+        self.games.get_mut(game_id)
+    }
+
+    pub fn get_player_games(&self, player_id: &str) -> Vec<&GameState> {
+        if let Some(game_ids) = self.player_games.get(player_id) {
+            game_ids.iter()
+                .filter_map(|id| self.games.get(id))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+}
