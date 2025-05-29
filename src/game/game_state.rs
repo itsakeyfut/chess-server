@@ -141,12 +141,12 @@ impl GameState {
             return Err("Invalid move".to_string());
         }
 
-        self.board.make_move(&chess_move);
+        self.board.make_move(&chess_move)?;
         self.move_history.push(chess_move);
         self.position_history.push(self.board.to_fen());
         self.last_move_at = Self::current_timestamp();
 
-        self.chess_game_end();
+        self.check_game_end();
 
         Ok(())
     }
@@ -248,4 +248,178 @@ impl GameState {
 
         false
     }
+
+    pub fn resign(&mut self, player_id: &str) -> Result<(), String> {
+        if self.result != GameResult::Ongoing {
+            return Err("Game is already finished".to_string());
+        }
+
+        let player_color = self.get_player_color(player_id)
+            .ok_or("Player not in this game")?;
+
+        self.result = GameResult::Resignation(player_color);
+        self.last_move_at = Self::current_timestamp();
+        Ok(())
+    }
+
+    pub fn offer_draw(&mut self, player_id: &str) -> Result<(), String> {
+        if self.result != GameResult::Ongoing {
+            return Err("Game is already finished".to_string());
+        }
+
+        if !self.is_player_in_game(player_id) {
+            return Err("Player not in this game".to_string());
+        }
+
+        // TODO: Wait for opponent's agreement of draw
+        self.result = GameResult::Draw(DrawReason::Agreement);
+        self.last_move_at = Self::current_timestamp();
+        Ok(())
+    }
+
+    pub fn timeout(&mut self, player_id: &str) -> Result<(), String> {
+        if self.result != GameResult::Ongoing {
+            return Err("Game is already finished".to_string());
+        }
+
+        let player_color = self.get_player_color(player_id)
+            .ok_or("Player not in this game")?;
+
+        self.result = GameResult::Timeout(player_color);
+        self.last_move_at = Self::current_timestamp();
+        Ok(())
+    }
+
+    pub fn get_legal_moves(&self) -> Vec<Move> {
+        if self.result != GameResult::Ongoing {
+            return Vec::new();
+        }
+        MoveValidator::generate_legal_moves(&self.board)
+    }
+
+    pub fn get_legal_moves_for_player(&self, player_id: &str) -> Vec<Move> {
+        if let Some(player_color) = self.get_player_color(player_id) {
+            if player_color == self.board.get_to_move() {
+                return self.get_legal_moves();
+            }
+        }
+        Vec::new()
+    }
+
+    pub fn is_in_check(&self) -> bool {
+        MoveValidator::is_in_check(&self.board, self.board.get_to_move())
+    }
+
+    pub fn get_current_player(&self) -> Option<&String> {
+        match self.board.get_to_move() {
+            Color::White => self.white_player.as_ref(),
+            Color::Black => self.black_player.as_ref(),
+        }
+    }
+
+    pub fn get_opponent(&self, player_id: &str) -> Option<&String> {
+        if let Some(ref white_id) = self.white_player {
+            if white_id == player_id {
+                return self.black_player.as_ref();
+            }
+        }
+        if let Some(ref black_id) = self.black_player {
+            if black_id == player_id {
+                return self.white_player.as_ref();
+            }
+        }
+        None
+    }
+
+    pub fn get_move_count(&self) -> usize {
+        self.move_history.len()
+    }
+
+    pub fn get_last_move(&self) -> Option<&Move> {
+        self.move_history.last()
+    }
+
+    pub fn to_pgn(&self) -> String {
+        let mut pgn = String::new();
+
+        // PGN headers
+        pgn.push_str(&format!("[Event \"Chess game\"]\n"));
+        pgn.push_str(&format!("[Site \"Chess Server\"]\n"));
+        pgn.push_str(&format!("[Date \"{}\"]\n", Self::format_date(self.created_at)));
+        pgn.push_str(&format!("[White \"{}\"]\n",
+            self.white_player.as_deref().unwrap_or("Unknown")));
+        pgn.push_str(&format!("[Black \"{}\"]\n",
+            self.black_player.as_deref().unwrap_or("Unknown")));
+
+        let result_str = match &self.result {
+            GameResult::Checkmate(Color::White) => "1-0",
+            GameResult::Checkmate(Color::Black) => "0-1",
+            GameResult::Stalemate | GameResult::Draw(_) => "1/2-1/2",
+            GameResult::Resignation(Color::White) => "0-1",
+            GameResult::Resignation(Color::Black) => "1-0",
+            GameResult::Timeout(Color::White) => "0-1",
+            GameResult::Timeout(Color::Black) => "1-0",
+            GameResult::Ongoing => "*",
+        };
+        pgn.push_str(&format!("[Result \"{}\"]\n", result_str));
+        pgn.push('\n');
+
+        for (i, chess_move) in self.move_history.iter().enumerate() {
+            if i % 2 == 0 {
+                pgn.push_str(&format!("{}.", (i / 2) + 1));
+            }
+            pgn.push_str(&format!(" {} ", chess_move.to_algebraic()));
+        }
+
+        pgn.push_str(&format!(" {}", result_str));
+        pgn
+    }
+
+    fn current_timestamp() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    fn format_date(timestamp: u64) -> String {
+        // TODO: use chrono
+        format!("{}", timestamp)
+    }
+
+    pub fn get_game_info(&self) -> GameInfo {
+        GameInfo {
+            id: self.id.clone(),
+            white_player: self.white_player.clone(),
+            black_player: self.black_player.clone(),
+            to_move: self.board.get_to_move(),
+            result: self.result.clone(),
+            move_count: self.move_history.len(),
+            is_in_check: self.is_in_check(),
+            last_move: self.get_last_move().cloned(),
+            created_at: self.created_at,
+            last_move_at: self.last_move_at,
+        }
+    }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameInfo {
+    pub id: String,
+    pub white_player: Option<String>,
+    pub black_player: Option<String>,
+    pub to_move: Color,
+    pub result: GameResult,
+    pub move_count: usize,
+    pub is_in_check: bool,
+    pub last_move: Option<Move>,
+    pub created_at: u64,
+    pub last_move_at: u64,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
