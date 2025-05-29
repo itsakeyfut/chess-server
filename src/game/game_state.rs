@@ -496,4 +496,52 @@ impl GameManager {
             Vec::new()
         }
     }
+
+    pub fn get_active_games(&self) -> Vec<&GameState> {
+        self.games.values()
+            .filter(|game| game.result == GameResult::Ongoing)
+            .collect()
+    }
+
+    pub fn remove_game(&mut self, game_id: &str) -> Option<GameState> {
+        if let Some(game) = self.games.remove(game_id) {
+            for player_games in self.player_games.values_mut() {
+                player_games.retain(|id| id != game_id);
+            }
+            Some(game)
+        } else {
+            None
+        }
+    }
+
+    pub fn cleanup_finished_games(&mut self, max_age_seconds: u64) {
+        let curr_time = GameState::current_timestamp();
+        let game_ids_to_remove: Vec<String> = self.games.iter()
+            .filter(|(_, game)| {
+                game.result != GameResult::Ongoing &&
+                (curr_time - game.last_move_at) > max_age_seconds
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        for game_id in game_ids_to_remove {
+            self.remove_game(&game_id);
+        }
+    }
+
+    pub fn get_game_count(&self) -> usize {
+        self.games.len()
+    }
+
+    pub fn get_active_game_count(&self) -> usize {
+        self.games.values()
+            .filter(|game| game.result == GameResult::Ongoing)
+            .count()
+    }
+}
+
+impl Default for GameManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
