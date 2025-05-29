@@ -454,4 +454,53 @@ impl MoveValidator {
         moves.extend(Self::generate_bishop_moves(board, from));
         moves
     }
+
+    fn generate_king_moves(board: &Board, from: Position, piece: &Piece) -> Vec<Move> {
+        let mut moves = Vec::new();
+
+        // Normal move
+        for file_offset in -1..=1 {
+            for rank_offset in -1..=1 {
+                if file_offset == 0 && rank_offset == 0 {
+                    continue;
+                }
+
+                let new_file = from.file as i8 + file_offset;
+                let new_rank = from.rank as i8 + rank_offset;
+
+                if let Some(to) = Position::new(new_file as u8, new_rank as u8) {
+                    moves.push(Move::new(from, to));
+                }
+            }
+        }
+
+        // Castling
+        if !piece.has_moved {
+            let castling_rights = board.get_castling_rights();
+
+            let can_castle_kingside = match piece.color {
+                Color::White => castling_rights.white_kingside,
+                Color::Black => castling_rights.black_kingside,
+            };
+
+            if can_castle_kingside {
+                if let Some(to) = Position::new(from.file + 2, from.rank) {
+                    moves.push(Move::castle(from, to));
+                }
+            }
+
+            let can_castle_queenside = match piece.color {
+                Color::White => castling_rights.white_queenside,
+                Color::Black => castling_rights.black_queenside,
+            };
+
+            if can_castle_queenside {
+                if let Some(to) = Position::new(from.file - 2, from.rank) {
+                    moves.push(Move::castle(from, to));
+                }
+            }
+        }
+
+        moves
+    }
 }
