@@ -215,3 +215,33 @@ impl ErrorResponse {
         self
     }
 }
+
+pub fn game_not_found(game_id: &str) -> ChessServerError {
+    ChessServerError::GameNotFound {
+        game_id: game_id.to_string(),
+    }
+}
+
+pub fn player_not_found(player_id: &str) -> ChessServerError {
+    ChessServerError::PlayerNotFound {
+        player_id: player_id.to_string(),
+    }
+}
+
+pub fn invalid_move(reason: &str) -> ChessServerError {
+    ChessServerError::InvalidMove {
+        reason: reason.to_string(),
+    }
+}
+
+pub fn invalid_message(details: &str) -> ChessServerError {
+    ChessServerError::InvalidMessage {
+        details: details.to_string(),
+    }
+}
+
+pub fn internal_server_error(details: &str) -> ChessServerError {
+    ChessServerError::InternalServerError {
+        details: details.to_string(),
+    }
+}
