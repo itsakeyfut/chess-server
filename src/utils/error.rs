@@ -11,7 +11,7 @@ pub enum ChessServerError {
     InvalidMove { reason: String },
 
     #[error("Game is already finished")]
-    GmaeFinished,
+    GameFinished,
 
     #[error("Not your turn")]
     NotYourTurn,
@@ -108,7 +108,7 @@ impl ChessServerError {
             // Game
             ChessServerError::GameNotFound { .. } => "1001",
             ChessServerError::InvalidMove { .. } => "1002",
-            ChessServerError::GmaeFinished => "1003",
+            ChessServerError::GameFinished => "1003",
             ChessServerError::NotYourTurn => "1004",
             ChessServerError::GameFull => "1005",
 
