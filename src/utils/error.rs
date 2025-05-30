@@ -101,3 +101,71 @@ pub enum ChessServerError {
     #[error("Action not allowed in current game state")]
     ActionNotAllowed,
 }
+
+impl ChessServerError {
+    pub fn error_code(&self) -> &'static str {
+        match self {
+            // Game
+            ChessServerError::GameNotFound { .. } => "1001",
+            ChessServerError::InvalidMove { .. } => "1002",
+            ChessServerError::GmaeFinished => "1003",
+            ChessServerError::NotYourTurn => "1004",
+            ChessServerError::GameFull => "1005",
+
+            // Player
+            ChessServerError::PlayerNotFound { .. } => "2001",
+            ChessServerError::PlayerAlreadyInGame { .. } => "2002",
+            ChessServerError::InvalidPlayerName { .. } => "2004",
+            ChessServerError::AuthenticationFailed => "2005",
+
+            // Network
+            ChessServerError::ConnectionLost => "3001",
+            ChessServerError::InvalidMessage { .. } => "3002",
+            ChessServerError::MessageTooLarge { .. } => "3003",
+            ChessServerError::ConnectionTimeout => "3004",
+            ChessServerError::ServerOverloaded => "3005",
+
+            // Protocol
+            ChessServerError::ProtocolVersionMismatch { .. } => "4001",
+            ChessServerError::UnsupportedMessageType { .. } => "4002",
+            ChessServerError::MissingRequiredField { .. } => "4003",
+
+            // System
+            ChessServerError::ConfigurationError { .. } => "5001",
+            ChessServerError::DatabaseError { .. } => "5002",
+            ChessServerError::IoError { .. } => "5003",
+            ChessServerError::SerializationError { .. } => "5004",
+            ChessServerError::InternalServerError { .. } => "5005",
+
+            // Validation
+            ChessServerError::InvalidPosition { .. } => "6001",
+            ChessServerError::InvalidFen { .. } => "6002",
+            ChessServerError::InvalidPgn { .. } => "6003",
+
+            // Rate Limit
+            ChessServerError::RateLimitExceeded { .. } => "7001",
+            ChessServerError::TooManyGames { .. } => "7002",
+
+            // Authentication
+            ChessServerError::InsufficientPermissions => "8001",
+            ChessServerError::ActionNotAllowed => "8002",
+        }
+    }
+
+    pub fn is_client_error(&self) -> bool {
+        matches!(self.error_code().chars().next(), Some('1'..='4') | Some('6'..='8'))
+    }
+
+    pub fn is_server_error(&self) -> bool {
+        matches!(self.error_code().chars().next(), Some('5'))
+    }
+
+    pub fn is_retryable(&self) -> bool {
+        matches!(self,
+            ChessServerError::ConnectionTimeout |
+            ChessServerError::ServerOverloaded |
+            ChessServerError::ConnectionLost |
+            ChessServerError::IoError { .. }
+        )
+    }
+}
