@@ -169,3 +169,48 @@ impl ChessServerError {
         )
     }
 }
+
+impl From<std::io::Error> for ChessServerError {
+    fn from(error: std::io::Error) -> Self {
+        ChessServerError::IoError {
+            details: error.to_string(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for ChessServerError {
+    fn from(error: serde_json::Error) -> Self {
+        ChessServerError::SerializationError {
+            details: error.to_string(),
+        }
+    }
+}
+
+pub type ChessResult<T> = Result<T, ChessServerError>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error_code: String,
+    pub message: String,
+    pub details: Option<serde_json::Value>,
+    pub timestamp: u64,
+}
+
+impl ErrorResponse {
+    pub fn from_error(error: &ChessServerError) -> Self {
+        Self {
+            error_code: error.error_code().to_string(),
+            message: error.to_string(),
+            details: None,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
+
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = Some(details);
+        self
+    }
+}
