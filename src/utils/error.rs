@@ -245,3 +245,48 @@ pub fn internal_server_error(details: &str) -> ChessServerError {
         details: details.to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_codes() {
+        let error = ChessServerError::GameNotFound {
+            game_id: "test".to_string(),
+        };
+
+        assert_eq!(error.error_code(), "1001");
+        assert!(error.is_client_error());
+        assert!(!error.is_server_error());
+    }
+
+    #[test]
+    fn test_error_response() {
+        let error = invalid_move("Invalid piece movement");
+        let response = ErrorResponse::from_error(&error);
+
+        assert_eq!(response.error_code, "1002");
+        assert!(response.message.contains("Invalid piece movement"));
+    }
+
+    #[test]
+    fn test_retryable_errors() {
+        assert!(ChessServerError::ConnectionTimeout.is_retryable());
+        assert!(ChessServerError::ServerOverloaded.is_retryable());
+        assert!(!ChessServerError::GameNotFound {
+            game_id: "test".to_string()
+        }.is_retryable());
+    }
+
+    #[test]
+    fn test_helper_functions() {
+        let error = game_not_found("game123");
+        match error {
+            ChessServerError::GameNotFound { game_id } => {
+                assert_eq!(game_id, "game123");
+            }
+            _ => panic!("Expected GameNotFound error"),
+        }
+    }
+}
