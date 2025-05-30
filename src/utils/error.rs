@@ -115,6 +115,7 @@ impl ChessServerError {
             // Player
             ChessServerError::PlayerNotFound { .. } => "2001",
             ChessServerError::PlayerAlreadyInGame { .. } => "2002",
+            ChessServerError::PlayerNotInGame { .. } => "2003",
             ChessServerError::InvalidPlayerName { .. } => "2004",
             ChessServerError::AuthenticationFailed => "2005",
 
