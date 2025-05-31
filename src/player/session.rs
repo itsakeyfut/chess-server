@@ -434,7 +434,7 @@ impl SessionManager {
             .count()
     }
 
-    pub fn get_sessions_by_io(&self, ip: &str) -> Vec<&Session> {
+    pub fn get_sessions_by_ip(&self, ip: &str) -> Vec<&Session> {
         if let Some(session_ids) = self.ip_sessions.get(ip) {
             session_ids.iter()
                 .filter_map(|id| self.sessions.get(id))
@@ -491,4 +491,142 @@ pub struct SessionStatistics {
     pub unique_ips: usize,
     pub total_session_duration: u64,
     pub average_session_duration: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    fn create_test_addr() -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
+    }
+
+    #[test]
+    fn test_session_creation() {
+        let session = Session::new(
+            "player123".to_string(),
+            "127.0.0.1".to_string(),
+            Some("TestClient/1.0".to_string())
+        );
+        
+        assert_eq!(session.player_id, "player123");
+        assert_eq!(session.ip_address, "127.0.0.1");
+        assert!(!session.is_authenticated);
+        assert!(session.permissions.can_create_games);
+    }
+
+    #[test]
+    fn test_guest_session() {
+        let session = Session::guest(
+            "127.0.0.1".to_string(),
+            Some("TestClient/1.0".to_string())
+        );
+        
+        assert!(session.is_guest());
+        assert!(!session.permissions.can_create_games);
+        assert!(session.permissions.can_spectate);
+    }
+
+    #[test]
+    fn test_session_authentication() {
+        let mut session = Session::guest(
+            "127.0.0.1".to_string(),
+            None
+        );
+        
+        assert!(session.is_guest());
+        
+        session.authenticate("authenticated_player".to_string());
+        assert!(!session.is_guest());
+        assert!(session.is_authenticated);
+        assert_eq!(session.player_id, "authenticated_player");
+    }
+
+    #[test]
+    fn test_session_manager() {
+        let mut manager = SessionManager::new(3600);
+        let addr = create_test_addr();
+        
+        let session_id = manager.create_session(
+            "player1".to_string(),
+            addr,
+            Some("TestClient/1.0".to_string())
+        ).unwrap();
+        
+        assert!(manager.get_session(&session_id).is_some());
+        assert!(manager.get_session_by_player("player1").is_some());
+        assert_eq!(manager.get_active_session_count(), 1);
+    }
+
+    #[test]
+    fn test_rate_limiting() {
+        let mut session = Session::new(
+            "player1".to_string(),
+            "127.0.0.1".to_string(),
+            None
+        );
+        
+        session.set_rate_limiter(5.0, 1.0); // 5 tokens, 1 per second
+        
+        // should be success til 5th times
+        for _ in 0..5 {
+            assert!(session.can_perform_action(1.0));
+        }
+        
+        // should be failed in 6th times
+        assert!(!session.can_perform_action(1.0));
+    }
+
+    #[test]
+    fn test_session_expiration() {
+        let mut session = Session::new(
+            "player1".to_string(),
+            "127.0.0.1".to_string(),
+            None
+        );
+        
+        assert!(!session.is_expired(3600));
+        
+        session.last_activity = current_timestamp() - 7200; // 2 hours ago
+        assert!(session.is_expired(3600)); // 1 hour timeout
+    }
+
+    #[test]
+    fn test_permissions() {
+        let mut session = Session::new(
+            "player1".to_string(),
+            "127.0.0.1".to_string(),
+            None
+        );
+        
+        assert!(session.can_create_game());
+        assert!(!session.is_admin());
+        
+        session.promote_to_admin();
+        assert!(session.is_admin());
+        assert!(session.is_moderator());
+        
+        session.ban();
+        assert!(!session.can_create_game());
+        assert!(!session.can_join_game());
+    }
+
+    #[test]
+    fn test_ip_session_tracking() {
+        let mut manager = SessionManager::new(3600);
+        let addr = create_test_addr();
+        
+        for i in 0..3 {
+            let session_id = manager.create_session(
+                format!("player{}", i),
+                addr,
+                None
+            ).unwrap();
+            assert!(manager.get_session(&session_id).is_some());
+        }
+        
+        let sessions = manager.get_sessions_by_ip("127.0.0.1");
+        assert_eq!(sessions.len(), 3);
+    }
 }
