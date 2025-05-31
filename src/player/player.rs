@@ -442,6 +442,14 @@ impl PlayerSearchCriteria {
 
         true
     }
+
+    pub fn online_available() -> Self {
+        Self {
+            online_only: true,
+            available_for_game: Some(true),
+            ..Default::default()
+        }
+    }
 }
 
 #[cfg(test)]
