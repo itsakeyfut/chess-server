@@ -94,3 +94,59 @@ pub fn format_duration(seconds: u64) -> String {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct RateLimiter {
+    tokens: f64,
+    capacity: f64,
+    refill_rate: f64, // tokens per second
+    last_refil: u64,
+}
+
+impl RateLimiter {
+    pub fn new(capacity: f64, refill_rate: f64) -> Self {
+        Self {
+            tokens: capacity,
+            capacity,
+            refill_rate,
+            last_refil: current_timestamp(),
+        }
+    }
+
+    pub fn try_consume(&mut self, tokens: f64) -> bool {
+        self.refill();
+
+        if self.tokens >= tokens {
+            self.tokens -= tokens;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn refill(&mut self) {
+        let now = current_timestamp();
+        let time_passed = now - self.last_refil;
+
+        if time_passed > 0 {
+            let new_tokens = time_passed as f64 * self.refill_rate;
+            self.tokens = (self.tokens + new_tokens).min(self.capacity);
+            self.last_refil = now;
+        }
+    }
+
+    pub fn available_tokens(&mut self) -> f64 {
+        self.refill();
+        self.tokens
+    }
+
+    pub fn time_until_available(&mut self, tokens: f64) -> Option<u64> {
+        self.refill();
+
+        if self.tokens >= tokens {
+            None
+        } else {
+            let needed_tokens = tokens - self.tokens;
+            Some((needed_tokens / self.refill_rate).ceil() as u64)
+        }
+    }
+}
