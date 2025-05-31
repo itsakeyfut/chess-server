@@ -6,13 +6,6 @@ pub use config::*;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const BYTES_PER_UNIT: f64 = 1024.0;
-
-const SECONDS_PER_MINUTE: u64 = 60;
-const SECONDS_PER_HOUR: u64 = 60 * SECONDS_PER_MINUTE; // 3600
-const SECONDS_PER_DAY: u64 = 24 * SECONDS_PER_MINUTE;  // 86400
-
-
 pub fn current_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -52,8 +45,8 @@ pub fn format_bytes(bytes: usize) -> String {
     let mut size = bytes as f64;
     let mut unit_idx = 0;
 
-    while size >= BYTES_PER_UNIT && unit_idx < UNITS.len() - 1 {
-        size /= BYTES_PER_UNIT;
+    while size >= 1024.0 && unit_idx < UNITS.len() - 1 {
+        size /= 1024.0;
         unit_idx += 1;
     }
 
@@ -65,27 +58,27 @@ pub fn format_bytes(bytes: usize) -> String {
 }
 
 pub fn format_duration(seconds: u64) -> String {
-    if seconds < SECONDS_PER_MINUTE {
+    if seconds < 60 {
         format!("{}s", seconds)
-    } else if seconds < SECONDS_PER_HOUR {
-        let minutes = seconds / SECONDS_PER_MINUTE;
-        let remaining_seconds = seconds % SECONDS_PER_MINUTE;
+    } else if seconds < 3600 {
+        let minutes = seconds / 60;
+        let remaining_seconds = seconds % 60;
         if remaining_seconds == 0 {
             format!("{}m", minutes)
         } else {
             format!("{}m {}s", minutes, remaining_seconds)
         }
-    } else if seconds < SECONDS_PER_DAY {
-        let hours = seconds / SECONDS_PER_HOUR;
-        let remaining_minutes = (seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
+    } else if seconds < 86400 {
+        let hours = seconds / 3600;
+        let remaining_minutes = (seconds % 3600) / 60;
         if remaining_minutes == 0 {
             format!("{}h", hours)
         } else {
             format!("{}h {}m", hours, remaining_minutes)
         }
     } else {
-        let days = seconds / SECONDS_PER_DAY;
-        let remaining_hours = (seconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR;
+        let days = seconds / 86400;
+        let remaining_hours = (seconds % 86400) / 3600;
         if remaining_hours == 0 {
             format!("{}d", days)
         } else {
@@ -313,4 +306,85 @@ pub fn is_valid_ip(ip: &str) -> bool {
 
 pub fn is_valid_port(port: u16) -> bool {
     port > 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_bytes() {
+        assert_eq!(format_bytes(500), "500 B");
+        assert_eq!(format_bytes(1024), "1.0 KB");
+        assert_eq!(format_bytes(1536), "1.5 KB");
+        assert_eq!(format_bytes(1048576), "1.0 MB");
+    }
+
+    #[test]
+    fn test_format_duration() {
+        assert_eq!(format_duration(30), "30s");
+        assert_eq!(format_duration(60), "1m");
+        assert_eq!(format_duration(90), "1m 30s");
+        assert_eq!(format_duration(3600), "1h");
+        assert_eq!(format_duration(3660), "1h 1m");
+        assert_eq!(format_duration(86400), "1d");
+        assert_eq!(format_duration(90000), "1d 1h");
+    }
+
+    #[test]
+    fn test_sanitize_player_name() {
+        assert_eq!(sanitize_player_name("  Alice  "), "Alice");
+        assert_eq!(sanitize_player_name("Player@123!"), "Player123");
+        assert_eq!(sanitize_player_name("Valid_Name-123"), "Valid_Name-123");
+        
+        let long_name = "a".repeat(30);
+        assert_eq!(sanitize_player_name(&long_name).len(), 20);
+    }
+
+    #[test]
+    fn test_rate_limiter() {
+        let mut limiter = RateLimiter::new(10.0, 1.0);
+
+        assert!(limiter.try_consume(5.0));
+        assert!(limiter.try_consume(5.0));
+        assert!(!limiter.try_consume(1.0)); // No Token Remains
+
+        assert!(limiter.time_until_available(1.0).is_some());
+    }
+
+    #[test]
+    fn test_truncate_string() {
+        assert_eq!(truncate_string("hello", 10), "hello");
+        assert_eq!(truncate_string("hello world", 5), "he...");
+        assert_eq!(truncate_string("hi", 1), "h");
+    }
+
+    #[test]
+    fn test_generate_ids() {
+        let id = generate_id();
+        assert_eq!(id.len(), 32); // UUID without hyphens
+
+        let short_id = generate_short_id();
+        assert_eq!(short_id.len(), 8);
+    }
+
+    #[test]
+    fn test_validation_functions() {
+        assert!(is_valid_ip("192.168.1.1"));
+        assert!(is_valid_ip("::1"));
+        assert!(!is_valid_ip("invalid.ip"));
+        
+        assert!(is_valid_port(8080));
+        assert!(!is_valid_port(0));
+    }
+
+    #[test]
+    fn test_statistics() {
+        let mut stats = Statistics::new();
+        stats.total_games = 100;
+        stats.total_moves = 5000;
+        
+        assert!(stats.uptime_seconds() >= 0);
+        assert!(stats.games_per_hour() >= 0.0);
+    }
 }
