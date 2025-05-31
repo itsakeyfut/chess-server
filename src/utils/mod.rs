@@ -200,3 +200,117 @@ impl Statistics {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "trace" => Ok(LogLevel::Trace),
+            "debug" => Ok(LogLevel::Debug),
+            "info" => Ok(LogLevel::Info),
+            "warn" => Ok(LogLevel::Warn),
+            "error" => Ok(LogLevel::Error),
+            _ => Err(format!("Invalid log level: {}", s)),
+        }
+    }
+}
+
+pub struct Logger {
+    level: LogLevel,
+    file_path: Option<String>,
+}
+
+impl Logger {
+    pub fn new(level: LogLevel, file_path: Option<String>) -> Self {
+        Self { level, file_path }
+    }
+
+    pub fn trace(&self, message: &str) {
+        self.log(LogLevel::Trace, message);
+    }
+
+    pub fn debug(&self, message: &str) {
+        self.log(LogLevel::Debug, message);
+    }
+
+    pub fn info(&self, message: &str) {
+        self.log(LogLevel::Info, message);
+    }
+
+    pub fn warn(&self, message: &str) {
+        self.log(LogLevel::Warn, message);
+    }
+
+    pub fn error(&self, message: &str) {
+        self.log(LogLevel::Error, message);
+    }
+
+    fn log(&self, level: LogLevel, message: &str) {
+        if self.should_log(&level) {
+            let timestamp = current_timestamp();
+            let formatted = format!(
+                "[{}] [{}] {}",
+                timestamp,
+                self.level_string(&level),
+                message
+            );
+
+            println!("{}", formatted);
+
+            // TODO: Output log file
+            // if let Some(ref _file_path) = self.file_path {}
+        }
+    }
+
+    fn should_log(&self, level: &LogLevel) -> bool {
+        self.level_priority(level) >= self.level_priority(&self.level)
+    }
+
+    fn level_priority(&self, level: &LogLevel) -> u8 {
+        match level {
+            LogLevel::Trace => 0,
+            LogLevel::Debug => 1,
+            LogLevel::Info => 2,
+            LogLevel::Warn => 3,
+            LogLevel::Error => 4,
+        }
+    }
+
+    fn level_string(&self, level: &LogLevel) -> &'static str {
+        match level {
+            LogLevel::Trace => "TRACE",
+            LogLevel::Debug => "DEBUG",
+            LogLevel::Info => "INFO",
+            LogLevel::Warn => "WARN",
+            LogLevel::Error => "ERROR",
+        }
+    }
+}
+
+pub fn truncate_string(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else if max_len < 3 {
+        s.chars().take(max_len).collect()
+    } else {
+        format!("{}...", s.chars().take(max_len - 3).collect::<String>())
+    }
+}
+
+pub fn is_valid_ip(ip: &str) -> bool {
+    ip.parse::<std::net::IpAddr>().is_ok()
+}
+
+pub fn is_valid_port(port: u16) -> bool {
+    port > 0
+}
