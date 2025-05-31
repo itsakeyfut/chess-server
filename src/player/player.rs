@@ -450,6 +450,23 @@ impl PlayerSearchCriteria {
             ..Default::default()
         }
     }
+
+    pub fn by_rating_range(min: u32, max: u32) -> Self {
+        Self {
+            min_rating: Some(min),
+            max_rating: Some(max),
+            online_only: true,
+            available_for_game: Some(true),
+            ..Default::default()
+        }
+    }
+
+    pub fn by_name(name: &str) -> Self {
+        Self {
+            name_contains: Some(name.to_string()),
+            ..Default::default()
+        }
+    }
 }
 
 #[cfg(test)]

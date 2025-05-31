@@ -293,3 +293,125 @@ impl Default for PlayerManager {
         Self::new(3600)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    fn create_test_addr() -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080)
+    }
+
+    #[test]
+    fn test_player_registration() {
+        let mut manager = PlayerManager::new(3600);
+
+        let player_id = manager.register_player("TestPlayer".to_string()).unwrap();
+        assert!(manager.get_player(&player_id).is_some());
+        assert!(manager.get_player_by_name("TestPlayer").is_some());
+
+        // should be failed if trying to register same name player
+        assert!(manager.register_player("TestPlayer".to_string()).is_err());
+    }
+
+    #[test]
+    fn test_player_search() {
+        let mut manager = PlayerManager::new(3600);
+        
+        let player1_id = manager.register_player("Alice".to_string()).unwrap();
+        let _ = manager.register_player("Bob".to_string()).unwrap();
+
+        manager.update_player_rating(&player1_id, 1500).unwrap();
+        
+        let criteria = PlayerSearchCriteria::by_rating_range(1400, 1600);
+        let results = manager.search_players(&criteria);
+        
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "Alice");
+    }
+
+    #[test]
+    fn test_game_management() {
+        let mut manager = PlayerManager::new(3600);
+        
+        let player_id = manager.register_player("TestPlayer".to_string()).unwrap();
+
+        manager.add_player_to_game(&player_id, "game1").unwrap();
+        let player = manager.get_player(&player_id).unwrap();
+        assert!(player.is_in_game("game1"));
+        assert_eq!(player.status, PlayerStatus::InGame);
+
+        manager.remove_player_from_game(&player_id, "game1").unwrap();
+        let player = manager.get_player(&player_id).unwrap();
+        assert!(!player.is_in_game("game1"));
+        assert_eq!(player.status, PlayerStatus::Online);
+    }
+
+    #[test]
+    fn test_rating_update() {
+        let mut manager = PlayerManager::new(3600);
+
+        let player1_id = manager.register_player("Player1".to_string()).unwrap();
+        let player2_id = manager.register_player("Player2".to_string()).unwrap();
+
+        assert_eq!(manager.get_player(&player1_id).unwrap().stats.rating, 1200);
+        assert_eq!(manager.get_player(&player2_id).unwrap().stats.rating, 1200);
+
+        manager.update_ratings_after_game(&player1_id, &player2_id, GameResult::PlayerWin).unwrap();
+        
+        let player1 = manager.get_player(&player1_id).unwrap();
+        let player2 = manager.get_player(&player2_id).unwrap();
+
+        assert!(player1.stats.rating > 1200);
+        assert!(player2.stats.rating < 1200);
+    }
+
+    #[test]
+    fn test_matchmaking() {
+        let mut manager = PlayerManager::new(3600);
+        
+        let player1_id = manager.register_player("Player1".to_string()).unwrap();
+        let player2_id = manager.register_player("Player2".to_string()).unwrap();
+        let player3_id = manager.register_player("Player3".to_string()).unwrap();
+
+        manager.update_player_rating(&player1_id, 1200).unwrap();
+        manager.update_player_rating(&player2_id, 1250).unwrap();
+        manager.update_player_rating(&player3_id, 1500).unwrap();
+        
+        let opponent = manager.find_matchmaking_opponent(&player1_id, 100);
+        assert!(opponent.is_some());
+        assert_eq!(opponent.unwrap().name, "Player2");
+    }
+
+    #[test]
+    fn test_session_integration() {
+        let mut manager = PlayerManager::new(3600);
+        let addr = create_test_addr();
+
+        let player_id = manager.register_player("TestPlayer".to_string()).unwrap();
+        let session_id = manager.create_player_session(&player_id, addr, None).unwrap();
+
+        assert!(manager.session_manager().get_session(&session_id).is_some());
+        assert!(manager.session_manager().get_session_by_player(&player_id).is_some());
+
+        let details = manager.get_player_details(&player_id).unwrap();
+        assert!(details.session_info.is_some());
+    }
+
+    #[test]
+    fn test_statistics() {
+        let mut manager = PlayerManager::new(3600);
+
+        for i in 0..10 {
+            let player_id = manager.register_player(format!("Player{}", i)).unwrap();
+            manager.update_player_rating(&player_id, 1000 + (i as u32 * 100)).unwrap();
+        }
+
+        assert_eq!(manager.get_player_count(), 10);
+
+        let distribution = manager.get_rating_distribution();
+        assert!(distribution.contains_key("Novice (1000-1199)"));
+        assert!(distribution.contains_key("Intermediate (1200-1399)"));
+    }
+}
