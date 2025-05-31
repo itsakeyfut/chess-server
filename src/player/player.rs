@@ -295,4 +295,50 @@ impl Player {
     pub fn get_rating(&self) -> u32 {
         self.stats.rating
     }
+
+
+    pub fn get_display_info(&self) -> PlayerDisplayInfo {
+        PlayerDisplayInfo {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            status: self.status.clone(),
+            rating: self.stats.rating,
+            games_played: self.stats.games_played,
+            win_rate: self.stats.win_rate(),
+            is_online: self.is_online(),
+            current_game_count: self.current_games.len(),
+        }
+    }
+
+    pub fn get_detailed_stats(&self) -> DetailedPlayerStats {
+        DetailedPlayerStats {
+            basic_stats: self.stats.clone(),
+            total_play_time_estimate: self.stats.games_played as u64 * 1800, // 30 min
+            account_age_days: (current_timestamp() - self.created_at) / 86400,
+            last_active: self.last_seen,
+            games_this_session: if self.last_game_at.is_some() { 1 } else { 0 },
+        }
+    }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerDisplayInfo {
+    pub id: String,
+    pub name: String,
+    pub status: PlayerStatus,
+    pub rating: u32,
+    pub games_played: u32,
+    pub win_rate: f64,
+    pub is_online: bool,
+    pub current_game_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetailedPlayerStats {
+    pub basic_stats: PlayerStats,
+    pub total_play_time_estimate: u64,
+    pub account_age_days: u64,
+    pub last_active: u64,
+    pub games_this_session: u32,
+}
+
