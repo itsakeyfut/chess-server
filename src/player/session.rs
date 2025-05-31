@@ -453,4 +453,42 @@ impl SessionManager {
             }
         }
     }
+
+    pub fn get_session_statistics(&self) -> SessionStatistics {
+        let mut stats = SessionStatistics::default();
+
+        stats.total_sessions = self.sessions.len();
+        stats.authenticated_sessions = self.get_authenticated_session_count();
+        stats.guest_sessions = self.get_guest_session_count();
+        stats.unique_ips = self.ip_sessions.len();
+
+        for session in self.sessions.values() {
+            stats.total_session_duration += session.duration_secs();
+
+            if session.is_admin() {
+                stats.admin_sessions += 1;
+            }
+            if session.is_moderator() {
+                stats.moderator_sessions += 1;
+            }
+        }
+
+        if stats.total_sessions > 0 {
+            stats.average_session_duration = stats.total_session_duration / stats.total_sessions as u64;
+        }
+
+        stats
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SessionStatistics {
+    pub total_sessions: usize,
+    pub authenticated_sessions: usize,
+    pub guest_sessions: usize,
+    pub admin_sessions: usize,
+    pub moderator_sessions: usize,
+    pub unique_ips: usize,
+    pub total_session_duration: u64,
+    pub average_session_duration: u64,
 }
