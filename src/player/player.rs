@@ -342,3 +342,40 @@ pub struct DetailedPlayerStats {
     pub games_this_session: u32,
 }
 
+pub struct EloCalculator;
+
+impl EloCalculator {
+    const K_FACTOR: f64 = 32.0;
+
+    pub fn calculate_rating_change(
+        player_rating: u32,
+        opponent_rating: u32,
+        result: GameResult,
+    ) -> (i32, i32) {
+        let player_expected = Self::expected_score(player_rating as f64, opponent_rating as f64);
+        let opponent_expected = Self::expected_score(opponent_rating as f64, player_rating as f64);
+
+        let (player_score, opponent_score) = match result {
+            GameResult::PlayerWin => (1.0, 1.0),
+            GameResult::OpponentWin => (0.0, 1.0),
+            GameResult::Draw => (0.5, 0.5),
+        };
+
+        let player_change = Self::K_FACTOR * (player_score - player_expected);
+        let opponent_change = Self::K_FACTOR * (opponent_score - opponent_expected);
+
+        (player_change.round() as i32, opponent_change.round() as i32)
+    }
+
+    fn expected_score(rating_a: f64, rating_b: f64) -> f64 {
+        1.0 / (1.0 + 10.0_f64.powf((rating_a - rating_b) / 400.0))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GameResult {
+    PlayerWin,
+    OpponentWin,
+    Draw,
+}
+
