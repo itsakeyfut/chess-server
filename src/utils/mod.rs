@@ -150,3 +150,53 @@ impl RateLimiter {
         }
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct Statistics {
+    pub total_connections: u64,
+    pub active_connections: u64,
+    pub total_games: u64,
+    pub active_games: u64,
+    pub total_moves: u64,
+    pub message_send: u64,
+    pub messages_received: u64,
+    pub bytes_sent: u64,
+    pub bytes_received: u64,
+    pub errors: u64,
+    pub server_start_time: u64,
+}
+
+impl Statistics {
+    pub fn new() -> Self {
+        Self {
+            server_start_time: current_timestamp(),
+            ..Default::default()
+        }
+    }
+
+    pub fn uptime_seconds(&self) -> u64 {
+        current_timestamp() - self.server_start_time
+    }
+
+    pub fn uptime_formatted(&self) -> String {
+        format_duration(self.uptime_seconds())
+    }
+
+    pub fn games_per_hour(&self) -> f64 {
+        let uptime_hours = self.uptime_seconds() as f64 / 3600.0;
+        if uptime_hours > 0.0 {
+            self.total_games as f64 / uptime_hours
+        } else {
+            0.0
+        }
+    }
+
+    pub fn average_game_duration(&self) -> Option<f64> {
+        if self.total_games > 0 {
+            // TODO: record game end time
+            Some(self.uptime_seconds() as f64 / self.total_games as f64)
+        } else {
+            None
+        }
+    }
+}
