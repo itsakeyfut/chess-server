@@ -1,7 +1,5 @@
-use crate::game::Color;
 use crate::utils::{current_timestamp, generate_id, ChessResult, ChessServerError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PlayerStatus {
