@@ -1,6 +1,8 @@
+use std::{collections::HashMap, net::SocketAddr};
+
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{current_timestamp, generate_id, RateLimiter};
+use crate::utils::{current_timestamp, generate_id, ChessResult, ChessServerError, RateLimiter};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
@@ -219,5 +221,236 @@ impl Session {
 
     pub fn has_elevated_permissions(&self) -> bool {
         self.is_moderator() || self.is_admin()
+    }
+}
+
+
+#[derive(Debug)]
+pub struct SessionManager {
+    sessions: HashMap<String, Session>,
+    player_sessions: HashMap<String, String>, // player_id -> session_id
+    ip_sessions: HashMap<String, Vec<String>>, // ip -> session_ids
+    timeout_secs: u64,
+}
+
+impl SessionManager {
+    pub fn new(timeout_secs: u64) -> Self {
+        Self {
+            sessions: HashMap::new(),
+            player_sessions: HashMap::new(),
+            ip_sessions: HashMap::new(),
+            timeout_secs,
+        }
+    }
+
+    pub fn create_session(
+        &mut self,
+        player_id: String,
+        addr: SocketAddr,
+        user_agent: Option<String>,
+    ) -> ChessResult<String> {
+        if let Some(existing_session_id) = self.player_sessions.get(&player_id) {
+            if let Some(session) = self.sessions.get_mut(existing_session_id) {
+                if !session.is_expired(self.timeout_secs) {
+                    session.update_activity();
+                    return Ok(session.id.clone())
+                }
+            }
+        }
+
+        let ip_str = addr.ip().to_string();
+
+        let ip_session_cnt = self.ip_sessions
+            .get(&ip_str)
+            .map(|sessions| sessions.len())
+            .unwrap_or(0);
+
+        // 5 session per each IP
+        if ip_session_cnt >= 5 {
+            return Err(ChessServerError::TooManyGames {
+                player_id: ip_str,
+            });
+        }
+
+        let mut session = Session::new(player_id.clone(), ip_str.clone(), user_agent);
+
+        // 60 actions within 1 min
+        session.set_rate_limiter(60.0, 1.0);
+
+        let session_id = session.id.clone();
+
+        self.remove_player_session(&player_id);
+
+        self.sessions.insert(session_id.clone(), session);
+        self.player_sessions.insert(player_id, session_id.clone());
+
+        self.ip_sessions
+            .entry(ip_str)
+            .or_insert_with(Vec::new)
+            .push(session_id.clone());
+
+        Ok(session_id)
+    }
+
+    pub fn create_guest_session(
+        &mut self,
+        addr: SocketAddr,
+        user_agent: Option<String>,
+    ) -> ChessResult<String> {
+        let ip_str = addr.ip().to_string();
+
+        let ip_session_cnt = self.ip_sessions
+            .get(&ip_str)
+            .map(|sessions| sessions.len())
+            .unwrap_or(0);
+
+        // 10 session per each IP
+        if ip_session_cnt >= 10 {
+            return Err(ChessServerError::ServerOverloaded);
+        }
+
+        let mut session = Session::guest(ip_str.clone(), user_agent);
+
+        // 30 actions within 1 min
+        session.set_rate_limiter(30.0, 0.5);
+
+        let session_id = session.id.clone();
+        let player_id = session.player_id.clone();
+
+        self.sessions.insert(session_id.clone(), session);
+        self.player_sessions.insert(player_id, session_id.clone());
+
+        self.ip_sessions
+            .entry(ip_str)
+            .or_insert_with(Vec::new)
+            .push(session_id.clone());
+
+        Ok(session_id)
+    }
+
+    pub fn get_session(&self, session_id: &str) -> Option<&Session> {
+        self.sessions.get(session_id)
+    }
+
+    pub fn get_session_mut(&mut self, session_id: &str) -> Option<&mut Session> {
+        self.sessions.get_mut(session_id)
+    }
+
+    pub fn get_session_by_player(&self, player_id: &str) -> Option<&Session> {
+        self.player_sessions
+            .get(player_id)
+            .and_then(|session_id| self.sessions.get(session_id))
+    }
+
+    pub fn get_session_by_player_mut(&mut self, player_id: &str) -> Option<&mut Session> {
+        if let Some(session_id) = self.player_sessions.get(player_id).cloned() {
+            self.sessions.get_mut(&session_id)
+        } else {
+            None
+        }
+    }
+
+    pub fn authenticate_session(
+        &mut self,
+        session_id: &str,
+        player_id: String,
+    ) -> ChessResult<()> {
+        let session = self.sessions.get_mut(session_id)
+            .ok_or_else(|| ChessServerError::PlayerNotFound {
+                player_id: session_id.to_string(),
+            })?;
+
+        if session.is_authenticated {
+            self.player_sessions.remove(&session.player_id);
+        }
+
+        session.authenticate(player_id.clone());
+        self.player_sessions.insert(player_id, session_id.to_string());
+
+        Ok(())
+    }
+
+    pub fn update_session_activity(&mut self, session_id: &str) -> ChessResult<()> {
+        let session = self.sessions.get_mut(session_id)
+            .ok_or_else(|| ChessServerError::PlayerNotFound {
+                player_id: session_id.to_string(),
+            })?;
+
+        session.update_activity();
+        Ok(())
+    }
+
+    pub fn remove_session(&mut self, session_id: &str) -> Option<Session> {
+        if let Some(session) = self.sessions.remove(session_id) {
+            self.player_sessions.remove(&session.player_id);
+
+            if let Some(ip_sessions) = self.ip_sessions.get_mut(&session.ip_address) {
+                ip_sessions.retain(|id| id != session_id);
+                if ip_sessions.is_empty() {
+                    self.ip_sessions.remove(&session.ip_address);
+                }
+            }
+
+            Some(session)
+        } else {
+            None
+        }
+    }
+
+    fn remove_player_session(&mut self, player_id: &str) {
+        if let Some(session_id) = self.player_sessions.remove(player_id) {
+            self.remove_session(&session_id);
+        }
+    }
+
+    pub fn cleanup_expired_sessions(&mut self) -> usize {
+        let expired_session_ids: Vec<String> = self.sessions
+            .iter()
+            .filter(|(_, session)| session.is_expired(self.timeout_secs))
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        let cnt = expired_session_ids.len();
+        for session_id in expired_session_ids {
+            self.remove_session(&session_id);
+        }
+
+        cnt
+    }
+
+    pub fn get_active_session_count(&self) -> usize {
+        self.sessions.len()
+    }
+
+    pub fn get_authenticated_session_count(&self) -> usize {
+        self.sessions.values()
+            .filter(|session| session.is_authenticated)
+            .count()
+    }
+
+    pub fn get_guest_session_count(&self) -> usize {
+        self.sessions.values()
+            .filter(|session| session.is_guest())
+            .count()
+    }
+
+    pub fn get_sessions_by_io(&self, ip: &str) -> Vec<&Session> {
+        if let Some(session_ids) = self.ip_sessions.get(ip) {
+            session_ids.iter()
+                .filter_map(|id| self.sessions.get(id))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn ban_ip(&mut self, ip: &str) {
+        if let Some(session_ids) = self.ip_sessions.get(ip).cloned() {
+            for session_id in session_ids {
+                if let Some(session) = self.sessions.get_mut(&session_id) {
+                    session.ban();
+                }
+            }
+        }
     }
 }
