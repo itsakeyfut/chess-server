@@ -379,3 +379,69 @@ pub enum GameResult {
     Draw,
 }
 
+#[derive(Debug, Clone)]
+pub struct PlayerSearchCriteria {
+    pub name_contains: Option<String>,
+    pub min_rating: Option<u32>,
+    pub max_rating: Option<u32>,
+    pub status: Option<PlayerStatus>,
+    pub available_for_game: Option<bool>,
+    pub min_games_played: Option<u32>,
+    pub online_only: bool,
+}
+
+impl Default for PlayerSearchCriteria {
+    fn default() -> Self {
+        Self {
+            name_contains: None,
+            min_rating: None,
+            max_rating: None,
+            status: None,
+            available_for_game: None,
+            min_games_played: None,
+            online_only: false,
+        }
+    }
+}
+
+impl PlayerSearchCriteria {
+    pub fn matches(&self, player: &Player) -> bool {
+        if let Some(ref name_filter) = self.name_contains {
+            if !player.name.to_lowercase().contains(&name_filter.to_lowercase()) {
+                return false;
+            }
+        }
+
+        if let Some(min_rating) = self.min_rating {
+            if player.stats.rating < min_rating {
+                return false;
+            }
+        }
+
+        if let Some(max_rating) = self.max_rating {
+            if player.stats.rating > max_rating {
+                return false;
+            }
+        }
+
+        if let Some(ref status_filter) = self.status {
+            if player.status != *status_filter {
+                return false;
+            }
+        }
+
+        if let Some(available) = self.available_for_game {
+            if player.is_available_for_game() != available {
+                return false;
+            }
+        }
+
+        if let Some(min_games) = self.min_games_played {
+            if player.stats.games_played < min_games {
+                return false;
+            }
+        }
+
+        true
+    }
+}
