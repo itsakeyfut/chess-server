@@ -443,3 +443,124 @@ impl PlayerSearchCriteria {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_player_creation() {
+        let player = Player::new("TestPlayer".to_string()).unwrap();
+        assert_eq!(player.name, "TestPlayer");
+        assert_eq!(player.status, PlayerStatus::Online);
+        assert_eq!(player.stats.rating, 1200);
+        assert!(player.current_games.is_empty());
+    }
+
+    #[test]
+    fn test_nivalid_player_name() {
+        let result = Player::new("".to_string());
+        assert!(result.is_err());
+
+        let result = Player::new("   ".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_player_stats_update() {
+        let mut stats = PlayerStats::default();
+        stats.update_after_game(true, false, false, 50, 1800);
+
+        assert_eq!(stats.games_played, 1);
+        assert_eq!(stats.games_won, 1);
+        assert_eq!(stats.games_lost, 0);
+        assert_eq!(stats.longest_game_moves, 50);
+        assert_eq!(stats.win_rate(), 1.0);
+    }
+
+    #[test]
+    fn test_game_management() {
+        let mut player = Player::new("TestPlayer".to_string()).unwrap();
+
+        player.add_game("game1".to_string()).unwrap();
+        assert!(player.is_in_game("game1"));
+        assert_eq!(player.status, PlayerStatus::InGame);
+
+        player.remove_game("game1");
+        assert!(!player.is_in_game("game1"));
+        assert_eq!(player.status, PlayerStatus::Online);
+    }
+
+    #[test]
+    fn test_elo_calculation() {
+        let (player_change, opponent_change) = EloCalculator::calculate_rating_change(
+            1200, 1200, GameResult::PlayerWin
+        );
+
+        assert!(player_change > 0);
+        assert!(opponent_change < 0);
+        assert_eq!(player_change, -opponent_change);
+    }
+
+    #[test]
+    fn test_player_availability() {
+        let mut player = Player::new("TestPlayer".to_string()).unwrap();
+        assert!(player.is_available_for_game());
+
+        player.status = PlayerStatus::Offline;
+        assert!(!player.is_available_for_game());
+
+        player.status = PlayerStatus::Online;
+        for i in 0..5 {
+            player.add_game(format!("game{}", i)).unwrap();
+        }
+        assert!(!player.is_available_for_game());
+    }
+
+    #[test]
+    fn test_connection_info() {
+        let mut player = Player::with_connection(
+            "TestPlayer".to_string(),
+            "127.0.0.1".to_string(),
+            Some("TestClient/1.0".to_string())
+        ).unwrap();
+
+        assert!(player.connection_info.is_some());
+        assert_eq!(player.connection_info.as_ref().unwrap().ip_address, "127.0.0.1");
+
+        player.add_sent_data(100);
+        player.add_received_data(50);
+
+        let conn_info = player.connection_info.as_ref().unwrap();
+        assert_eq!(conn_info.bytes_sent, 100);
+        assert_eq!(conn_info.bytes_received, 50);
+        assert_eq!(conn_info.messages_sent, 1);
+        assert_eq!(conn_info.messages_received, 1);
+        
+        player.disconnect();
+        assert!(player.connection_info.is_none());
+        assert_eq!(player.status, PlayerStatus::Offline);
+    }
+
+    #[test]
+    fn test_player_preferences() {
+        let mut player = Player::new("TestPlayer".to_string()).unwrap();
+        
+        let mut prefs = PlayerPreferences::default();
+        prefs.auto_accept_draws = true;
+        prefs.piece_style = "modern".to_string();
+        
+        player.update_preferences(prefs.clone());
+        assert_eq!(player.preferences.auto_accept_draws, true);
+        assert_eq!(player.preferences.piece_style, "modern");
+    }
+
+    #[test]
+    fn test_time_tracking() {
+        let player = Player::new("TestPlayer".to_string()).unwrap();
+        
+        // New player might be able to be seen
+        assert!(player.time_since_last_seen() < 5);
+        assert!(!player.is_idle(300)); // 5 min
+    }
+}
