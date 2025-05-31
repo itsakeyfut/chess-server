@@ -43,3 +43,49 @@ impl Default for SessionPermissions {
         }
     }
 }
+
+impl SessionPermissions {
+    pub fn guest() -> Self {
+        Self {
+            can_create_games: false,
+            can_join_games: true,
+            can_spectate: true,
+            can_chat: false,
+            is_admin: false,
+            is_moderator: false,
+        }
+    }
+
+    pub fn admin() -> Self {
+        Self {
+            can_create_games: true,
+            can_join_games: true,
+            can_spectate: true,
+            can_chat: true,
+            is_admin: true,
+            is_moderator: true,
+        }
+    }
+
+    pub fn moderator() -> Self {
+        Self {
+            can_create_games: true,
+            can_join_games: true,
+            can_spectate: true,
+            can_chat: true,
+            is_admin: false,
+            is_moderator: true,
+        }
+    }
+
+    pub fn banned() -> Self {
+        Self {
+            can_create_games: false,
+            can_join_games: false,
+            can_spectate: false,
+            can_chat: false,
+            is_admin: false,
+            is_moderator: false,
+        }
+    }
+}
