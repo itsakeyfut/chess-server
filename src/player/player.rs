@@ -164,3 +164,135 @@ impl Default for PlayerPreferences {
         }
     }
 }
+
+impl Player {
+    pub fn new(name: String) -> ChessResult<Self> {
+        if name.trim().is_empty() {
+            return Err(ChessServerError::InvalidPlayerName { name });
+        }
+
+        let sanitized_name = crate::utils::sanitize_player_name(&name);
+        if sanitized_name.is_empty() {
+            return Err(ChessServerError::InvalidPlayerName { name });
+        }
+
+        Ok(Self {
+            id: generate_id(),
+            name: sanitized_name,
+            status: PlayerStatus::Online,
+            stats: PlayerStats::default(),
+            created_at: current_timestamp(),
+            last_seen: current_timestamp(),
+            last_game_at: None,
+            current_games: Vec::new(),
+            preferences: PlayerPreferences::default(),
+            connection_info: None,
+        })
+    }
+
+    pub fn with_connection(name: String, ip_address: String, user_agent: Option<String>) -> ChessResult<Self> {
+        let mut player = Self::new(name)?;
+        player.set_connection_info(ip_address, user_agent);
+        Ok(player)
+    }
+
+    pub fn set_connection_info(&mut self, ip_address: String, user_agent: Option<String>) {
+        let now = current_timestamp();
+        self.connection_info = Some(ConnectionInfo {
+            ip_address,
+            user_agent,
+            connected_at: now,
+            last_heartbeat: now,
+            bytes_sent: 0,
+            bytes_received: 0,
+            messages_sent: 0,
+            messages_received: 0,
+        });
+        self.last_seen = now;
+    }
+
+    pub fn update_heartbeat(&mut self) {
+        self.last_seen = current_timestamp();
+        if let Some(ref mut conn_info) = self.connection_info {
+            conn_info.last_heartbeat = current_timestamp();
+        }
+    }
+
+    pub fn add_sent_data(&mut self, bytes: u64) {
+        if let Some(ref mut conn_info) = self.connection_info {
+            conn_info.bytes_sent += bytes;
+            conn_info.messages_sent += 1;
+        }
+    }
+
+    pub fn add_received_data(&mut self, bytes: u64) {
+        if let Some(ref mut conn_info) = self.connection_info {
+            conn_info.bytes_received += bytes;
+            conn_info.messages_received += 1;
+        }
+    }
+    
+    pub fn disconnect(&mut self) {
+        self.status = PlayerStatus::Offline;
+        self.connection_info = None;
+        self.last_seen = current_timestamp();
+    }
+
+    pub fn set_status(&mut self, status: PlayerStatus) {
+        self.status = status;
+        self.last_seen = current_timestamp();
+    }
+
+    pub fn add_game(&mut self, game_id: String) -> ChessResult<()> {
+        if self.current_games.len() >= 10 {
+            return Err(ChessServerError::TooManyGames {
+                player_id: self.id.clone(),
+            });
+        }
+
+        if !self.current_games.contains(&game_id) {
+            self.current_games.push(game_id);
+            self.status = PlayerStatus::InGame;
+        }
+        Ok(())
+    }
+
+    pub fn remove_game(&mut self, game_id: &str) {
+        self.current_games.retain(|id| id != game_id);
+        self.last_game_at = Some(current_timestamp());
+        
+        if self.current_games.is_empty() && self.status == PlayerStatus::InGame {
+            self.status = PlayerStatus::Online;
+        }
+    }
+
+    pub fn is_in_game(&self, game_id: &str) -> bool {
+        self.current_games.contains(&game_id.to_string())
+    }
+
+    pub fn is_available_for_game(&self) -> bool {
+        matches!(self.status, PlayerStatus::Online | PlayerStatus::Away) &&
+        self.current_games.len() < 5 // 5 users can play at the same time
+    }
+
+    pub fn is_online(&self) -> bool {
+        !matches!(self.status, PlayerStatus::Offline)
+    }
+
+    pub fn time_since_last_seen(&self) -> u64 {
+        current_timestamp() - self.last_seen
+    }
+
+    pub fn is_idle(&self, idle_threshold_secs: u64) -> bool {
+        self.time_since_last_seen() > idle_threshold_secs
+    }
+
+    pub fn update_preferences(&mut self, preferences: PlayerPreferences) {
+        self.preferences = preferences;
+        self.last_seen = current_timestamp();
+    }
+
+    pub fn get_rating(&self) -> u32 {
+        self.stats.rating
+    }
+}
