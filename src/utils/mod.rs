@@ -89,10 +89,10 @@ pub fn format_duration(seconds: u64) -> String {
 
 #[derive(Debug, Clone)]
 pub struct RateLimiter {
-    tokens: f64,
+    pub tokens: f64,
     capacity: f64,
     refill_rate: f64, // tokens per second
-    last_refil: u64,
+    pub last_refill: u64,
 }
 
 impl RateLimiter {
@@ -101,7 +101,7 @@ impl RateLimiter {
             tokens: capacity,
             capacity,
             refill_rate,
-            last_refil: current_timestamp(),
+            last_refill: current_timestamp(),
         }
     }
 
@@ -118,12 +118,12 @@ impl RateLimiter {
 
     fn refill(&mut self) {
         let now = current_timestamp();
-        let time_passed = now - self.last_refil;
+        let time_passed = now - self.last_refill;
 
         if time_passed > 0 {
             let new_tokens = time_passed as f64 * self.refill_rate;
             self.tokens = (self.tokens + new_tokens).min(self.capacity);
-            self.last_refil = now;
+            self.last_refill = now;
         }
     }
 
