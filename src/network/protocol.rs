@@ -99,3 +99,8 @@ pub struct AuthenticateResponse {
     pub player_info: PlayerDisplayInfo,
     pub session_expires_at: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisconnectRequest {
+    pub reason: Option<String>,
+}
