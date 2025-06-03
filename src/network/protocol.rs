@@ -177,3 +177,9 @@ pub struct OfferDrawRequest {
     pub game_id: String,
     pub message: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RespondToDrawRequest {
+    pub game_id: String,
+    pub accept: bool,
+}
