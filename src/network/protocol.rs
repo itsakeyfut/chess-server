@@ -236,3 +236,9 @@ pub struct GetGameListRequest {
     pub limit: Option<u32>,
     pub offset: Option<u32>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetGameListResponse {
+    pub games: Vec<GameInfo>,
+    pub total_count: u32,
+}
