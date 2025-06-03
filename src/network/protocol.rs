@@ -188,3 +188,9 @@ pub struct RespondToDrawRequest {
 pub struct ResignRequest {
     pub game_id: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestUndoRequest {
+    pub game_id: String,
+    pub moves_count: u32,
+}
