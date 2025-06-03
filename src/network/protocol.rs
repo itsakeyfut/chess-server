@@ -200,3 +200,9 @@ pub struct RespondToUndoRequest {
     pub game_id: String,
     pub accept: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetPlayerInfoRequest {
+    // your info if None
+    pub player_id: Option<String>,
+}
