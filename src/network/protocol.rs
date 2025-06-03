@@ -133,3 +133,9 @@ pub struct JoinGameResponse {
     pub opponent_info: Option<PlayerDisplayInfo>,
     pub game_state: GameStateShapshot,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaveGameRequest {
+    pub game_id: String,
+    pub reason: Option<String>,
+}
