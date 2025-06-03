@@ -242,3 +242,8 @@ pub struct GetGameListResponse {
     pub games: Vec<GameInfo>,
     pub total_count: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetGameInfoRequest {
+    pub game_id: String,
+}
