@@ -171,3 +171,9 @@ pub struct MoveUpdateNotification {
     pub time_taken_ms: Option<u64>,
     pub resulting_position: String, // FEN
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfferDrawRequest {
+    pub game_id: String,
+    pub message: Option<String>,
+}
