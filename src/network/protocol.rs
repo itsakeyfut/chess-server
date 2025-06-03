@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Color, GameInfo, GameResult, Move, Position};
-use crate::player::{PlayerDisplayInfo, PlayerPreferences, PlayerStats, TimeControl};
+use crate::player::{PlayerDisplayInfo, PlayerPreferences, PlayerStats};
 use crate::utils::{ChessResult, ChessServerError, ErrorResponse};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
@@ -70,4 +70,11 @@ pub enum MessageType {
     Heartbeat,
     Error(ErrorResponse),
     Success(SuccessResponse),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectRequest {
+    pub player_name: Option<String>,
+    pub client_version: Option<String>,
+    pub user_agent: Option<String>,
 }
