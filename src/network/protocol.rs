@@ -139,3 +139,8 @@ pub struct LeaveGameRequest {
     pub game_id: String,
     pub reason: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpectateGameRequest {
+    pub game_id: String,
+}
