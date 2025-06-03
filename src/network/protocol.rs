@@ -104,3 +104,11 @@ pub struct AuthenticateResponse {
 pub struct DisconnectRequest {
     pub reason: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateGameRequest {
+    pub time_control: Option<TimeControl>,
+    pub color_preference: Option<Color>,
+    pub is_private: bool,
+    pub password: Option<String>,
+}
