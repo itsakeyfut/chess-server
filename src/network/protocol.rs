@@ -151,3 +151,13 @@ pub struct MakeMoveRequest {
     pub chess_move: Move,
     pub move_time_ms: Option<u64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameUpdateNotification {
+    pub game_id: String,
+    pub game_state: GameStateShapshot,
+    pub last_move: Option<Move>,
+    pub player_to_move: Color,
+    pub is_check: bool,
+    pub game_result: Option<GameResult>,
+}
