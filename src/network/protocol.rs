@@ -527,3 +527,37 @@ impl Default for GameListFilter {
         }
     }
 }
+
+pub fn create_connect_request(player_name: Option<String>, client_version: Option<String>) -> Message {
+    Message::request(MessageType::Connect(ConnectRequest {
+        player_name,
+        client_version,
+        user_agent: Some("Chess Client".to_string()),
+    }))
+}
+
+pub fn create_make_move_request(game_id: String, chess_move: Move) -> Message {
+    Message::request(MessageType::MakeMove(MakeMoveRequest {
+        game_id,
+        chess_move,
+        move_time_ms: None,
+    }))
+}
+
+pub fn create_game_update_notification(
+    game_id: String,
+    game_state: GameStateShapshot,
+    last_move: Option<Move>,
+    player_to_move: Color,
+    is_check: bool,
+    game_result: Option<GameResult>,
+) -> Message {
+    Message::notification(MessageType::GameUpdate(GameUpdateNotification {
+        game_id,
+        game_state,
+        last_move,
+        player_to_move,
+        is_check,
+        game_result,
+    }))
+}
