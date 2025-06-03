@@ -247,3 +247,8 @@ pub struct GetGameListResponse {
 pub struct GetGameInfoRequest {
     pub game_id: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetLegalMovesRequest {
+    pub game_id: String,
+}
