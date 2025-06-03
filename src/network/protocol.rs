@@ -78,3 +78,10 @@ pub struct ConnectRequest {
     pub client_version: Option<String>,
     pub user_agent: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectResponse {
+    pub session_id: String,
+    pub player_id: String,
+    pub server_info: ServerInfo,
+}
