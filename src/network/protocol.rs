@@ -265,3 +265,12 @@ pub struct ChatMessageRequest {
     pub message: String,
     pub message_type: ChatMessageType,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessageNotification {
+    pub game_id: Option<String>,
+    pub sender: PlayerDisplayInfo,
+    pub message: String,
+    pub message_type: ChatMessageType,
+    pub timestamp: u64,
+}
