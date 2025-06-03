@@ -118,3 +118,10 @@ pub struct CreateGameResponse {
     pub game_id: String,
     pub player_color: Color,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinGameRequest {
+    pub game_id: String,
+    pub password: Option<String>,
+    pub color_preference: Option<Color>,
+}
