@@ -258,3 +258,10 @@ pub struct GetLegalMovesResponse {
     pub legal_moves: Vec<Move>,
     pub in_check: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessageRequest {
+    pub game_id: Option<String>, // Global chat if None
+    pub message: String,
+    pub message_type: ChatMessageType,
+}
