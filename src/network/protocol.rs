@@ -85,3 +85,10 @@ pub struct ConnectResponse {
     pub player_id: String,
     pub server_info: ServerInfo,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthenticateRequest {
+    pub player_name: String,
+    pub password: Option<String>,
+    pub session_token: Option<String>,
+}
