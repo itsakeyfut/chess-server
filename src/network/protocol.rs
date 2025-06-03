@@ -212,3 +212,8 @@ pub struct GetPlayerInfoResponse {
     pub player_info: PlayerDisplayInfo,
     pub detailed_stats: Option<PlayerStats>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePreferencesRequest {
+    pub preferences: PlayerPreferences,
+}
