@@ -92,3 +92,10 @@ pub struct AuthenticateRequest {
     pub password: Option<String>,
     pub session_token: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthenticateResponse {
+    pub player_id: String,
+    pub player_info: PlayerDisplayInfo,
+    pub session_expires_at: u64,
+}
