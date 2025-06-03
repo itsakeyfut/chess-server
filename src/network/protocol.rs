@@ -252,3 +252,9 @@ pub struct GetGameInfoRequest {
 pub struct GetLegalMovesRequest {
     pub game_id: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetLegalMovesResponse {
+    pub legal_moves: Vec<Move>,
+    pub in_check: bool,
+}
