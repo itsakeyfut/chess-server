@@ -112,3 +112,9 @@ pub struct CreateGameRequest {
     pub is_private: bool,
     pub password: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateGameResponse {
+    pub game_id: String,
+    pub player_color: Color,
+}
