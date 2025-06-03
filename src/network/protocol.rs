@@ -206,3 +206,9 @@ pub struct GetPlayerInfoRequest {
     // your info if None
     pub player_id: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetPlayerInfoResponse {
+    pub player_info: PlayerDisplayInfo,
+    pub detailed_stats: Option<PlayerStats>,
+}
