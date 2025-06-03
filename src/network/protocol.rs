@@ -515,3 +515,15 @@ impl Message {
         }
     }
 }
+
+impl Default for GameListFilter {
+    fn default() -> Self {
+        Self {
+            status: None,
+            player_name: None,
+            time_control: None,
+            min_rating: None,
+            max_rating: None,
+        }
+    }
+}
