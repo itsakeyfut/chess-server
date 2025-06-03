@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::game::{Color, GameInfo, GameResult, Move, Position};
+use crate::game::{Color, GameInfo, GameResult, Move};
 use crate::player::{PlayerDisplayInfo, PlayerPreferences, PlayerStats};
 use crate::utils::{ChessResult, ChessServerError, ErrorResponse};
 
@@ -560,4 +560,106 @@ pub fn create_game_update_notification(
         is_check,
         game_result,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::Position;
+
+    #[test]
+    fn test_message_serialization() {
+        let connect_msg = create_connect_request(
+            Some("TestPlayer".to_string()),
+            Some("TestClient/1.0".to_string())
+        );
+
+        let json = connect_msg.to_json().unwrap();
+        let deserialized = Message::from_json(&json).unwrap();
+
+        assert_eq!(connect_msg.version, deserialized.version);
+        assert_eq!(connect_msg.type_name(), deserialized.type_name());
+    }
+
+    #[test]
+    fn test_move_message() {
+        let chess_move = Move::new(
+            Position::from_algebraic("e2").unwrap(),
+            Position::from_algebraic("e4").unwrap()
+        );
+
+        let move_msg = create_make_move_request("game123".to_string(), chess_move);
+        
+        let json = move_msg.to_json().unwrap();
+        let deserialized = Message::from_json(&json).unwrap();
+
+        match deserialized.message_type {
+            MessageType::MakeMove(req) => {
+                assert_eq!(req.game_id, "game123");
+                assert_eq!(req.chess_move.from.to_algebraic(), "e2");
+                assert_eq!(req.chess_move.to.to_algebraic(), "e4");
+            },
+            _ => panic!("Expected MakeMove message"),
+        }
+    }
+
+    #[test]
+    fn test_message_size_limit() {
+        let large_string = "a".repeat(MAX_MESSAGE_SIZE + 1);
+        let result = Message::from_json(&large_string);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_protocol_version_mismatch() {
+        let mut connect_msg = create_connect_request(
+            Some("TestPlayer".to_string()),
+            Some("TestClient/1.0".to_string())
+        );
+        connect_msg.version = "2.0".to_string();
+
+        let json = connect_msg.to_json().unwrap();
+        let result = Message::from_json(&json);
+        
+        assert!(result.is_err());
+        if let Err(ChessServerError::ProtocolVersionMismatch { .. }) = result {
+            // Expected error
+        } else {
+            panic!("Expected ProtocolVersionMismatch error");
+        }
+    }
+
+    #[test]
+    fn test_message_types() {
+        let ping_msg = Message::new(MessageType::Ping);
+        assert!(!ping_msg.is_request());
+        assert!(!ping_msg.is_response());
+        assert!(!ping_msg.is_notification());
+
+        let connect_msg = create_connect_request(None, None);
+        assert!(connect_msg.is_request());
+        assert!(!connect_msg.is_response());
+        assert!(!connect_msg.is_notification());
+
+        let success_msg = Message::success("OK", Some("123".to_string()));
+        assert!(!success_msg.is_request());
+        assert!(success_msg.is_response());
+        assert!(!success_msg.is_notification());
+    }
+
+    #[test]
+    fn test_error_message() {
+        let error = ChessServerError::GameNotFound {
+            game_id: "test123".to_string(),
+        };
+        let error_msg = Message::error(error, Some("req123".to_string()));
+
+        match error_msg.message_type {
+            MessageType::Error(err_resp) => {
+                assert_eq!(err_resp.error_code, "1001");
+                assert!(err_resp.message.contains("test123"));
+            },
+            _ => panic!("Expected Error message"),
+        }
+    }
 }
