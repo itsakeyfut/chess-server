@@ -328,3 +328,9 @@ pub enum ChatMessageType {
     System,
     Private,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuccessResponse {
+    pub message: String,
+    pub data: Option<serde_json::Value>,
+}
