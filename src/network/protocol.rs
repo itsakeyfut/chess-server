@@ -274,3 +274,33 @@ pub struct ChatMessageNotification {
     pub message_type: ChatMessageType,
     pub timestamp: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerInfo {
+    pub server_name: String,
+    pub version: String,
+    pub max_players: u32,
+    pub current_players: u32,
+    pub features: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeControl {
+    pub initial_time_secs: u32,
+    pub increment_secs: u32,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameStateShapshot {
+    pub board_fen: String,
+    pub move_history: Vec<Move>,
+    pub white_player: Option<PlayerDisplayInfo>,
+    pub black_player: Option<PlayerDisplayInfo>,
+    pub to_move: Color,
+    pub move_count: u32,
+    pub game_result: Option<GameResult>,
+    pub time_control: Option<TimeControl>,
+    pub white_time_remaining_ms: Option<u64>,
+    pub black_time_remaining_ms: Option<u64>,
+}
