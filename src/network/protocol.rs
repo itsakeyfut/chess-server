@@ -320,3 +320,11 @@ pub enum GameStatus {
     Active,
     Finished,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ChatMessageType {
+    Game,
+    Global,
+    System,
+    Private,
+}
