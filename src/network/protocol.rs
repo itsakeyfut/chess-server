@@ -304,3 +304,12 @@ pub struct GameStateShapshot {
     pub white_time_remaining_ms: Option<u64>,
     pub black_time_remaining_ms: Option<u64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameListFilter {
+    pub status: Option<GameStatus>,
+    pub player_name: Option<String>,
+    pub time_control: Option<String>,
+    pub min_rating: Option<u32>,
+    pub max_rating: Option<u32>,
+}
