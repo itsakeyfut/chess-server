@@ -161,3 +161,13 @@ pub struct GameUpdateNotification {
     pub is_check: bool,
     pub game_result: Option<GameResult>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoveUpdateNotification {
+    pub game_id: String,
+    pub chess_move: Move,
+    pub player: Color,
+    pub move_number: u32,
+    pub time_taken_ms: Option<u64>,
+    pub resulting_position: String, // FEN
+}
