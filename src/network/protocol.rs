@@ -144,3 +144,10 @@ pub struct LeaveGameRequest {
 pub struct SpectateGameRequest {
     pub game_id: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MakeMoveRequest {
+    pub game_id: String,
+    pub chess_move: Move,
+    pub move_time_ms: Option<u64>,
+}
