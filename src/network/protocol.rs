@@ -194,3 +194,9 @@ pub struct RequestUndoRequest {
     pub game_id: String,
     pub moves_count: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RespondToUndoRequest {
+    pub game_id: String,
+    pub accept: bool,
+}
