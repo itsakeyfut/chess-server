@@ -313,3 +313,10 @@ pub struct GameListFilter {
     pub min_rating: Option<u32>,
     pub max_rating: Option<u32>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GameStatus {
+    Waiting,
+    Active,
+    Finished,
+}
