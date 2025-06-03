@@ -334,3 +334,184 @@ pub struct SuccessResponse {
     pub message: String,
     pub data: Option<serde_json::Value>,
 }
+
+impl Message {
+    pub fn new(message_type: MessageType) -> Self {
+        Self {
+            id: None,
+            version: PROTOCOL_VERSION.to_string(),
+            timestamp: crate::utils::current_timestamp(),
+            message_type,
+        }
+    }
+
+    pub fn with_id(mut self, id: String) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn request(message_type: MessageType) -> Self {
+        Self::new(message_type).with_id(crate::utils::generate_short_id())
+    }
+
+    pub fn response(message_type: MessageType, request_id: Option<String>) -> Self {
+        let mut msg = Self::new(message_type);
+        msg.id = request_id;
+        msg
+    }
+
+    pub fn notification(message_type: MessageType) -> Self {
+        Self::new(message_type)
+    }
+
+    pub fn error(error: ChessServerError, request_id: Option<String>) -> Self {
+        Self::response(
+            MessageType::Error(ErrorResponse::from_error(&error)),
+            request_id,
+        )
+    }
+
+    pub fn success(message: &str, request_id: Option<String>) -> Self {
+        Self::response(
+            MessageType::Success(SuccessResponse {
+                message: message.to_string(),
+                data: None,
+            }),
+            request_id,
+        )
+    }
+
+    pub fn success_with_data(message: &str, data: serde_json::Value, request_id: Option<String>) -> Self {
+        Self::response(
+            MessageType::Success(SuccessResponse {
+                message: message.to_string(),
+                data: Some(data),
+            }),
+            request_id,
+        )
+    }
+
+    pub fn to_json(&self) -> ChessResult<String> {
+        serde_json::to_string(self).map_err(ChessServerError::from)
+    }
+
+    pub fn to_bytes(&self) -> ChessResult<Vec<u8>> {
+        let json = self.to_json()?;
+        Ok(json.into_bytes())
+    }
+
+    pub fn from_json(json: &str) -> ChessResult<Self> {
+        if json.len() > MAX_MESSAGE_SIZE {
+            return Err(ChessServerError::MessageTooLarge { size: json.len() });
+        }
+
+        let message: Message = serde_json::from_str(json)?;
+
+        if message.version != PROTOCOL_VERSION {
+            return Err(ChessServerError::ProtocolVersionMismatch { 
+                expected: PROTOCOL_VERSION.to_string(),
+                actual: message.version,
+            });
+        }
+
+        Ok(message)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> ChessResult<Self> {
+        let json = String::from_utf8(bytes.to_vec())
+            .map_err(|_| ChessServerError::InvalidMessage {
+                details: "Invalid UTF-8 encoding".to_string(),
+            })?;
+
+        Self::from_json(&json)
+    }
+
+    pub fn size(&self) -> usize {
+        self.to_json().map(|json| json.len()).unwrap_or(0)
+    }
+
+    pub fn is_request(&self) -> bool {
+        matches!(self.message_type,
+            MessageType::Connect(_) |
+            MessageType::Authenticate(_) |
+            MessageType::CreateGame(_) |
+            MessageType::JoinGame(_) |
+            MessageType::MakeMove(_) |
+            MessageType::GetPlayerInfo(_) |
+            MessageType::GetGameList(_) |
+            MessageType::GetGameInfo(_) |
+            MessageType::GetLegalMoves(_) |
+            MessageType::GetOnlinePlayers(_) |
+            MessageType::SendMessage(_) |
+            MessageType::OfferDraw(_) |
+            MessageType::Resign(_)
+        )
+    }
+
+    pub fn is_response(&self) -> bool {
+        matches!(self.message_type,
+            MessageType::ConnectResponse(_) |
+            MessageType::AuthenticateResponse(_) |
+            MessageType::CreateGameResponse(_) |
+            MessageType::JoinGameResponse(_) |
+            MessageType::GetPlayerInfoResponse(_) |
+            MessageType::GetGameListResponse(_) |
+            MessageType::GetGameInfoResponse(_) |
+            MessageType::GetLegalMovesResponse(_) |
+            MessageType::GetOnlinePlayersResponse(_) |
+            MessageType::Success(_) |
+            MessageType::Error(_)
+        )
+    }
+
+    pub fn is_notification(&self) -> bool {
+        matches!(self.message_type,
+            MessageType::GameUpdate(_) |
+            MessageType::MoveUpdate(_) |
+            MessageType::ChatMessage(_) |
+            MessageType::Heartbeat
+        )
+    }
+
+    pub fn type_name(&self) -> &'static str {
+        match &self.message_type {
+            MessageType::Connect(_) => "Connect",
+            MessageType::ConnectResponse(_) => "ConnectResponse",
+            MessageType::Authenticate(_) => "Authenticate",
+            MessageType::AuthenticateResponse(_) => "AuthenticateResponse",
+            MessageType::Disconnect(_) => "Disconnect",
+            MessageType::CreateGame(_) => "CreateGame",
+            MessageType::CreateGameResponse(_) => "CreateGameResponse",
+            MessageType::JoinGame(_) => "JoinGame",
+            MessageType::JoinGameResponse(_) => "JoinGameResponse",
+            MessageType::LeaveGame(_) => "LeaveGame",
+            MessageType::SpectateGame(_) => "SpectateGame",
+            MessageType::MakeMove(_) => "MakeMove",
+            MessageType::GameUpdate(_) => "GameUpdate",
+            MessageType::MoveUpdate(_) => "MoveUpdate",
+            MessageType::OfferDraw(_) => "OfferDraw",
+            MessageType::RespondToDraw(_) => "RespondToDraw",
+            MessageType::Resign(_) => "Resign",
+            MessageType::RequestUndo(_) => "RequestUndo",
+            MessageType::RespondToUndo(_) => "RespondToUndo",
+            MessageType::GetPlayerInfo(_) => "GetPlayerInfo",
+            MessageType::GetPlayerInfoResponse(_) => "GetPlayerInfoResponse",
+            MessageType::UpdatePreferences(_) => "UpdatePreferences",
+            MessageType::GetOnlinePlayers(_) => "GetOnlinePlayers",
+            MessageType::GetOnlinePlayersResponse(_) => "GetOnlinePlayersResponse",
+            MessageType::GetGameList(_) => "GetGameList",
+            MessageType::GetGameListResponse(_) => "GetGameListResponse",
+            MessageType::GetGameInfo(_) => "GetGameInfo",
+            MessageType::GetGameInfoResponse(_) => "GetGameInfoResponse",
+            MessageType::GetLegalMoves(_) => "GetLegalMoves",
+            MessageType::GetLegalMovesResponse(_) => "GetLegalMovesResponse",
+            MessageType::SendMessage(_) => "SendMessage",
+            MessageType::ChatMessage(_) => "ChatMessage",
+            MessageType::Ping => "Ping",
+            MessageType::Pong => "Pong",
+            MessageType::Heartbeat => "Heartbeat",
+            MessageType::Error(_) => "Error",
+            MessageType::Success(_) => "Success",
+        }
+    }
+}
