@@ -229,3 +229,10 @@ pub struct GetOnlinePlayersResponse {
     pub players: Vec<PlayerDisplayInfo>,
     pub total_count: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetGameListRequest {
+    pub filter: GameListFilter,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
