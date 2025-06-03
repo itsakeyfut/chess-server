@@ -183,3 +183,8 @@ pub struct RespondToDrawRequest {
     pub game_id: String,
     pub accept: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResignRequest {
+    pub game_id: String,
+}
