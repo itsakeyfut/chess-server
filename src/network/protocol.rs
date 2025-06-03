@@ -217,3 +217,9 @@ pub struct GetPlayerInfoResponse {
 pub struct UpdatePreferencesRequest {
     pub preferences: PlayerPreferences,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetOnlinePlayersRequest {
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
