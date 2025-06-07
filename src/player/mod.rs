@@ -63,8 +63,9 @@ impl PlayerManager {
         if let Some(player) = self.players.remove(player_id) {
             self.name_to_id.remove(&player.name);
 
-            if let Some(session) = self.session_manager.get_session_by_player(player_id) {
-                self.session_manager.remove_session(&session.id);
+            if let Some(session) = self.session_manager.get_session_by_player_mut(player_id) {
+                let session_id = session.id.clone();
+                self.session_manager.remove_session(&session_id);
             }
 
             Some(player)
