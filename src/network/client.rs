@@ -308,5 +308,302 @@ pub trait MessageHandler {
 pub struct ClientManager {
     clients: Arc<RwLock<HashMap<String, Arc<Client>>>>,
     player_clients: Arc<RwLock<HashMap<String, String>>>, // player_id -> client_id
-    session_client: Arc<RwLock<HashMap<String, String>>>, // session_id -> client_id
+    session_clients: Arc<RwLock<HashMap<String, String>>>, // session_id -> client_id
+}
+
+impl ClientManager {
+    pub fn new() -> Self {
+        Self {
+            clients: Arc::new(RwLock::new(HashMap::new())),
+            player_clients: Arc::new(RwLock::new(HashMap::new())),
+            session_clients: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub async fn add_client(&self, client: Arc<Client>) {
+        let client_id = {
+            let info = client.get_info().await;
+            info.id.clone()
+        };
+
+        let mut clients_guard = self.clients.write().await;
+        clients_guard.insert(client_id, client);
+    }
+
+    pub async fn remove_client(&self, client_id: &str) -> Option<Arc<Client>> {
+        let mut clients_guard = self.clients.write().await;
+        let client = clients_guard.remove(client_id)?;
+
+        let client_info = client.get_info().await;
+
+        if let Some(ref player_id) = client_info.player_id {
+            let mut player_clients_guard = self.player_clients.write().await;
+            player_clients_guard.remove(player_id);
+        }
+
+        if let Some(ref session_id) = client_info.session_id {
+            let mut session_clients_guard = self.session_clients.write().await;
+            session_clients_guard.remove(session_id);
+        }
+
+        Some(client)
+    }
+
+    pub async fn get_client(&self, client_id: &str) -> Option<Arc<Client>> {
+        let client_guard = self.clients.read().await;
+        client_guard.get(client_id).cloned()
+    }
+
+    pub async fn get_client_by_player(&self, player_id: &str) -> Option<Arc<Client>> {
+        let player_clients_guard = self.player_clients.read().await;
+        let client_id = player_clients_guard.get(player_id)?;
+
+        let clients_guard = self.clients.read().await;
+        clients_guard.get(client_id).cloned()
+    }
+
+    pub async fn get_client_by_session(&self, session_id: &str) -> Option<Arc<Client>> {
+        let session_clients_guard = self.session_clients.read().await;
+        let client_id = session_clients_guard.get(session_id)?;
+
+        let clients_guard = self.clients.read().await;
+        clients_guard.get(client_id).cloned()
+    }
+
+    pub async fn associate_player(&self, client_id: &str, player_id: String) -> ChessResult<()> {
+        // Check if clients exist
+        {
+            let clients_guard = self.clients.read().await;
+            if !clients_guard.contains_key(client_id) {
+                return Err(ChessServerError::PlayerNotFound {
+                    player_id: client_id.to_string(),
+                });
+            }
+        }
+
+        let mut player_clients_guard = self.player_clients.write().await;
+        player_clients_guard.insert(player_id, client_id.to_string());
+
+        Ok(())
+    }
+
+    pub async fn associate_session(&self, client_id: &str, session_id: String) -> ChessResult<()> {
+        // Check if clients exist
+        {
+            let clients_guard = self.clients.read().await;
+            if !clients_guard.contains_key(client_id) {
+                return Err(ChessServerError::PlayerNotFound {
+                    player_id: client_id.to_string(),
+                });
+            }
+        }
+
+        let mut session_clients_guard = self.session_clients.write().await;
+        session_clients_guard.insert(session_id, client_id.to_string());
+
+        Ok(())
+    }
+
+    pub async fn broadcast_message(&self, message: Message) -> usize {
+        let clients_guard = self.clients.read().await;
+        let mut sent_count = 0;
+
+        for client in clients_guard.values() {
+            if client.send_message(message.clone()).await.is_ok() {
+                sent_count += 1;
+            }
+        }
+
+        sent_count
+    }
+
+    pub async fn broadcast_to_authenticated(&self, message: Message) -> usize {
+        let clients_guard = self.clients.read().await;
+        let mut sent_count = 0;
+
+        for client in clients_guard.values() {
+            if client.is_authenticated().await {
+                if client.send_message(message.clone()).await.is_ok() {
+                    sent_count += 1;
+                }
+            }
+        }
+
+        sent_count
+    }
+
+    pub async fn send_to_player(&self, player_id: &str, message: Message) -> ChessResult<()> {
+        let client = self.get_client_by_player(player_id).await
+            .ok_or_else(|| ChessServerError::PlayerNotFound {
+                player_id: player_id.to_string(),
+            })?;
+
+        client.send_message(message).await
+    }
+
+    pub async fn send_to_players(&self, player_ids: &[String], message: Message) -> usize {
+        let mut sent_count = 0;
+
+        for player_id in player_ids {
+            if let Some(client) = self.get_client_by_player(player_id).await {
+                if client.send_message(message.clone()).await.is_ok() {
+                    sent_count += 1;
+                }
+            } 
+        }
+
+        sent_count
+    }
+
+    pub async fn disconnect_client(&self, client_id: &str) -> ChessResult<()> {
+        let client = self.get_client(client_id).await
+            .ok_or_else(|| ChessServerError::PlayerNotFound {
+                player_id: client_id.to_string(),
+            })?;
+
+        client.disconnect().await;
+        Ok(())
+    }
+
+    pub async fn disconnect_player(&self, player_id: &str) -> ChessResult<()> {
+        let client = self.get_client_by_player(player_id).await
+            .ok_or_else(|| ChessServerError::PlayerNotFound {
+                player_id: player_id.to_string(),
+            })?;
+
+        client.disconnect().await;
+        Ok(())
+    }
+
+    pub async fn get_connected_clients(&self) -> Vec<Arc<Client>> {
+        let clients_guard = self.clients.read().await;
+        let mut connected = Vec::new();
+
+        for client in clients_guard.values() {
+            if client.is_connected().await {
+                connected.push(client.clone());
+            }
+        }
+
+        connected
+    }
+
+    pub async fn get_authenticated_clients(&self) -> Vec<Arc<Client>> {
+        let clients_guard = self.clients.read().await;
+        let mut authenticated = Vec::new();
+
+        for client in clients_guard.values() {
+            if client.is_authenticated().await {
+                authenticated.push(client.clone());
+            }
+        }
+
+        authenticated
+    }
+
+    pub async fn cleanup_disconnected_clinets(&self) -> usize {
+        let mut disconnected_ids = Vec::new();
+
+        {
+            let clients_guard = self.clients.read().await;
+            for (client_id, client) in clients_guard.iter() {
+                if !client.is_connected().await {
+                    disconnected_ids.push(client_id.clone());
+                }
+            }
+        }
+
+        let cnt = disconnected_ids.len();
+        for client_id in disconnected_ids {
+            self.remove_client(&client_id).await;
+        }
+
+        cnt
+    }
+
+    pub async fn get_client_count(&self) -> usize {
+        let clients_guard = self.clients.read().await;
+        clients_guard.len()
+    }
+
+    pub async fn get_authenticated_client_count(&self) -> usize {
+        let clients_guard = self.clients.read().await;
+        let mut cnt = 0;
+
+        for client in clients_guard.values() {
+            if client.is_authenticated().await {
+                cnt += 1;
+            }
+        }
+
+        cnt
+    }
+
+    pub async fn get_client_statistics(&self) -> ClientStatistics {
+        let clients_guard = self.clients.read().await;
+        let mut stats = ClientStatistics::default();
+
+        stats.total_clients = clients_guard.len();
+
+        for client in clients_guard.values() {
+            let info = client.get_info().await;
+
+            stats.total_bytes_sent += info.bytes_sent;
+            stats.total_bytes_received += info.bytes_received;
+            stats.total_messages_sent += info.messages_sent as u64;
+            stats.total_messages_received += info.messages_received as u64;
+
+            match info.state {
+                ClientState::Connected => stats.connected_clients += 1,
+                ClientState::Authenticated => stats.authenticated_clients += 1,
+                ClientState::InGame => stats.in_game_clients += 1,
+                ClientState::Disconnected => stats.disconnected_clients += 1,
+                _ => {}
+            }
+
+            let session_duration = current_timestamp() - info.connected_at;
+            stats.total_session_duration += session_duration;
+        }
+
+        if stats.total_clients > 0 {
+            stats.average_session_duration = stats.total_session_duration / stats.total_clients as u64;
+        }
+
+        stats
+    }
+
+    pub async fn get_clients_by_state(&self, state: ClientState) -> Vec<Arc<Client>> {
+        let clients_guard = self.clients.read().await;
+        let mut matching_clients = Vec::new();
+
+        for client in clients_guard.values() {
+            let info = client.get_info().await;
+            if info.state == state {
+                matching_clients.push(client.clone());
+            }
+        }
+
+        matching_clients
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ClientStatistics {
+    pub total_clients: usize,
+    pub connected_clients: usize,
+    pub authenticated_clients: usize,
+    pub in_game_clients: usize,
+    pub disconnected_clients: usize,
+    pub total_bytes_sent: u64,
+    pub total_bytes_received: u64,
+    pub total_messages_sent: u64,
+    pub total_messages_received: u64,
+    pub total_session_duration: u64,
+    pub average_session_duration: u64,
+}
+
+impl Default for ClientManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
