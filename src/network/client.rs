@@ -502,7 +502,7 @@ impl ClientManager {
         authenticated
     }
 
-    pub async fn cleanup_disconnected_clinets(&self) -> usize {
+    pub async fn cleanup_disconnected_clients(&self) -> usize {
         let mut disconnected_ids = Vec::new();
 
         {
