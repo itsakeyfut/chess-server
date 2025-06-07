@@ -636,14 +636,15 @@ mod tests {
     async fn create_test_connection() -> (TcpStream, SocketAddr) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        
+
         let connect_task = TcpStream::connect(addr);
         let accept_task = listener.accept();
-        
-        let (client_stream, (server_stream, client_addr)) = 
-            tokio::join!(connect_task, accept_task);
-        
-        (server_stream.unwrap(), client_addr)
+
+        let (_, accept_result) = tokio::join!(connect_task, accept_task);
+
+        let (server_stream, client_addr) = accept_result.unwrap();
+
+        (server_stream, client_addr)
     }
 
     #[tokio::test]
