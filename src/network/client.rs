@@ -5,10 +5,10 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, RwLock};
 use tokio::time::{timeout, Duration};
 
-use super::protocol::{Message, MessageType};
+use super::protocol::Message;
 use crate::player::Session;
 use crate::utils::{current_timestamp, ChessResult, ChessServerError};
 
@@ -612,8 +612,8 @@ impl Default for ClientManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
     use tokio::net::{TcpListener, TcpStream};
+    use crate::network::protocol::MessageType;
 
     struct TestMessageHandler;
 
