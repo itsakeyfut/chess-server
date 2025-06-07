@@ -150,9 +150,10 @@ impl Client {
                         match Message::from_json(line) {
                             Ok(message) => {
                                 // Fetch a session info
-                                let session_guard = session.read().await;
-                                let session_ref = session_guard.as_ref();
-                                drop(session_guard);
+                                let session_ref = {
+                                    let session_guard = session.read().await;
+                                    session_guard.as_ref().cloned()
+                                };
 
                                 // Pass a process to Meesage Handler
                                 let client_info = {
@@ -160,7 +161,7 @@ impl Client {
                                     info_guard.clone()
                                 };
 
-                                let response = handler.handle_message(message, client_info, session_ref.cloned()).await;
+                                let response = handler.handle_message(message, client_info, session_ref).await;
 
                                 if let Some(response_message) = response {
                                     if sender.send(response_message).is_err() {
@@ -605,5 +606,91 @@ pub struct ClientStatistics {
 impl Default for ClientManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::net::{TcpListener, TcpStream};
+
+    struct TestMessageHandler;
+
+    #[async_trait::async_trait]
+    impl MessageHandler for TestMessageHandler {
+        async fn handle_message(
+            &self,
+            message: Message,
+            _client_info: ClientInfo,
+            _session: Option<Session>,
+        ) -> Option<Message> {
+            // エコーハンドラー
+            match message.message_type {
+                MessageType::Ping => Some(Message::new(MessageType::Pong)),
+                _ => None,
+            }
+        }
+    }
+
+    async fn create_test_connection() -> (TcpStream, SocketAddr) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        
+        let connect_task = TcpStream::connect(addr);
+        let accept_task = listener.accept();
+        
+        let (client_stream, (server_stream, client_addr)) = 
+            tokio::join!(connect_task, accept_task);
+        
+        (server_stream.unwrap(), client_addr)
+    }
+
+    #[tokio::test]
+    async fn test_client_creation() {
+        let (stream, addr) = create_test_connection().await;
+        let handler = Arc::new(TestMessageHandler);
+        
+        let client = Client::new(stream, addr, handler).await.unwrap();
+        let info = client.get_info().await;
+        
+        assert_eq!(info.address, addr);
+        assert_eq!(info.state, ClientState::Connected);
+        assert!(client.is_connected().await);
+    }
+
+    #[tokio::test]
+    async fn test_client_manager() {
+        let manager = ClientManager::new();
+        let (stream, addr) = create_test_connection().await;
+        let handler = Arc::new(TestMessageHandler);
+        
+        let client = Arc::new(Client::new(stream, addr, handler).await.unwrap());
+        let client_id = client.get_info().await.id.clone();
+        
+        manager.add_client(client.clone()).await;
+        
+        assert_eq!(manager.get_client_count().await, 1);
+        assert!(manager.get_client(&client_id).await.is_some());
+        
+        manager.remove_client(&client_id).await;
+        assert_eq!(manager.get_client_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn test_player_association() {
+        let manager = ClientManager::new();
+        let (stream, addr) = create_test_connection().await;
+        let handler = Arc::new(TestMessageHandler);
+        
+        let client = Arc::new(Client::new(stream, addr, handler).await.unwrap());
+        let client_id = client.get_info().await.id.clone();
+        
+        manager.add_client(client.clone()).await;
+        manager.associate_player(&client_id, "player123".to_string()).await.unwrap();
+        
+        let found_client = manager.get_client_by_player("player123").await;
+        assert!(found_client.is_some());
+        assert_eq!(found_client.unwrap().get_info().await.id, client_id);
     }
 }
