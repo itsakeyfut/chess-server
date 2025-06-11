@@ -392,4 +392,51 @@ impl ServerMessageHandler {
             request_id
         ))
     }
+
+    async fn handle_create_game(
+        &self,
+        req: CreateGameRequest,
+        client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) if s.can_create_game() => s,
+            _ => return Some(Message::error(
+                ChessServerError::InsufficientPermissions,
+                request_id,
+            )),
+        };
+
+        let mut game_manager = self.game_manager.write().await;
+        let mut player_manager = self.player_manager.write().await;
+
+        let game_id = game_manager.create_game();
+
+        let player_color = match game_manager.join_game(&game_id, session.player_id.clone(), req.color_preference) {
+            Ok(color) => color,
+            Err(e) => {
+                game_manager.remove_game(&game_id);
+                return Some(Message::error(e, request_id));
+            }
+        };
+
+        if let Err(e) = player_manager.add_player_to_game(&session.player_id, &game_id) {
+            game_manager.remove_game(&game_id);
+            return Some(Message::error(e, request_id));
+        }
+
+        {
+            let mut stats = self.statistics.write().await;
+            stats.total_games_created += 1;
+        }
+
+        Some(Message::response(
+            MessageType::CreateGameResponse(CreateGameResponse {
+                game_id,
+                player_color,
+            }),
+            request_id,
+        ))
+    }
 }
