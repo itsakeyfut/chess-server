@@ -498,4 +498,68 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_make_move(
+        &self,
+        req: MakeMoveRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) => s,
+            None => return Some(Message::error(
+                ChessServerError::AuthenticationFailed,
+                request_id,
+            )),
+        };
+
+        let mut game_manager = self.game_manager.write().await;
+        let player_manager = self.player_manager.read().await;
+
+        if let Err(e) = game_manager.make_move(&req.game_id, &session.player_id, req.chess_move.clone()) {
+            return Some(Message::error(e, request_id));
+        }
+
+        {
+            let mut stats = self.statistics.write().await;
+            stats.total_moves_player += 1;
+        }
+
+        let game = match game_manager.get_game(&req.game_id) {
+            Some(g) => g,
+            None => return Some(Message::error(
+                ChessServerError::GameNotFound { game_id: req.game_id.clone() },
+                request_id,
+            )),
+        };
+
+        let game_state = self.create_game_state_snapshot(game, &player_manager).await;
+        let update_notification = Message::notification(MessageType::GameUpdate(GameUpdateNotification {
+            game_id: req.game_id.clone(),
+            game_state,
+            last_move: Some(req.chess_move),
+            player_to_move: game.board.get_to_move(),
+            is_check: game.is_in_check(),
+            game_result: if game.result == crate::game::GameResult::Ongoing { None } else { Some(game.result.clone()) },
+        }));
+
+        let player_ids = vec![
+            game.white_player.clone(),
+            game.black_player.clone(),
+        ].into_iter().flatten().collect::<Vec<_>>();
+
+        drop(player_manager);
+        drop(game_manager);
+
+        tokio::spawn({
+            let client_manager = Arc::clone(&self.client_manager);
+            let notification = update_notification.clone();
+            async move {
+                client_manager.send_to_players(&player_ids, notification).await;
+            }
+        });
+
+        Some(Message::success("Move made successfully", request_id))
+    }
 }
