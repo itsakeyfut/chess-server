@@ -239,3 +239,115 @@ struct ServerMessageHandler {
     config: ServerConfig,
     statistics: Arc<RwLock<ServerStatistics>>,
 }
+
+#[async_trait::async_trait]
+impl MessageHandler for ServerMessageHandler {
+    async fn handle_message(
+        &self,
+        message: Message,
+        client_info: crate::network::client::ClientInfo,
+        session: Option<Session>,
+    ) -> Option<Message> {
+        // 統計を更新
+        {
+            let mut stats = self.statistics.write().await;
+            stats.total_messages_processed += 1;
+        }
+
+        match message.message_type {
+            MessageType::Connect(req) => self.handle_connect(req, &client_info, message.id).await,
+            MessageType::Authenticate(req) => self.handle_authenticate(req, &client_info, message.id).await,
+            MessageType::CreateGame(req) => self.handle_create_game(req, &client_info, session, message.id).await,
+            MessageType::JoinGame(req) => self.handle_join_game(req, &client_info, session, message.id).await,
+            MessageType::MakeMove(req) => self.handle_make_move(req, &client_info, session, message.id).await,
+            MessageType::GetPlayerInfo(req) => self.handle_get_player_info(req, &client_info, session, message.id).await,
+            MessageType::GetGameList(req) => self.handle_get_game_list(req, &client_info, message.id).await,
+            MessageType::GetGameInfo(req) => self.handle_get_game_info(req, &client_info, message.id).await,
+            MessageType::GetLegalMoves(req) => self.handle_get_legal_moves(req, &client_info, session, message.id).await,
+            MessageType::GetOnlinePlayers(req) => self.handle_get_online_players(req, &client_info, message.id).await,
+            MessageType::Resign(req) => self.handle_resign(req, &client_info, session, message.id).await,
+            MessageType::OfferDraw(req) => self.handle_offer_draw(req, &client_info, session, message.id).await,
+            MessageType::RespondToDraw(req) => self.handle_respond_to_draw(req, &client_info, session, message.id).await,
+            MessageType::SendMessage(req) => self.handle_send_message(req, &client_info, session, message.id).await,
+            MessageType::Ping => Some(Message::response(MessageType::Pong, message.id)),
+            MessageType::Heartbeat => {
+                // update client's last activity
+                None
+            }
+            _ => {
+                Some(Message::error(
+                    ChessServerError::UnsupportedMessageType {
+                        message_type: message.type_name().to_string(),
+                    },
+                    message.id,
+                ))
+            }
+        }
+    }
+}
+
+impl ServerMessageHandler {
+    async fn handle_connect(
+        &self,
+        req: ConnectRequest,
+        client_info: &crate::network::client::ClientInfo,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let mut player_manager = self.player_manager.write().await;
+
+        // Create a guest or new player session
+        let (session_id, player_id) = if let Some(player_name) = req.player_name {
+            // New player
+            let player_id = match player_manager.get_player_id_by_name(&player_name) {
+                Some(existing_id) => existing_id,
+                None => {
+                    match player_manager.register_player(player_name) {
+                        Ok(id) => id,
+                        Err(e) => return Some(Message::error(e, request_id)),
+                    }
+                }
+            };
+
+            match player_manager.create_player_session(&player_id, client_info.address, req.user_agent.clone()) {
+                Ok(session_id) => (session_id, player_id),
+                Err(e) => return Some(Message::error(e, request_id)),
+            }
+        } else {
+            // Guest
+            match player_manager.session_manager_mut().create_guest_session(client_info.address, req.user_agent.clone()) {
+                Ok(session_id) => {
+                    let session = player_manager.session_manager().get_session(&session_id).unwrap();
+                    (session_id.clone(), session.player_id.clone())
+                },
+                Err(e) => return Some(Message::error(e, request_id)),
+            }
+        };
+
+        if let Err(_) = self.client_manager.associate_session(&client_info.id, session_id.clone()).await {
+            return Some(Message::error(
+                ChessServerError::InternalServerError {
+                    details: "Failed to associate session".to_string(),
+                },
+                request_id,
+            ));
+        }
+
+        if let Err(_) = self.client_manager.associate_player(&client_info.id, player_id.clone()).await {
+            return Some(Message::error(
+                ChessServerError::InternalServerError {
+                    details: "Failed to associate player".to_string(),
+                },
+                request_id,
+            ));
+        }
+
+        Some(Message::response(
+            MessageType::ConnectResponse(ConnectResponse {
+                session_id,
+                player_id,
+                server_info: self.server_info.clone(),
+            }),
+            request_id,
+        ))
+    }
+}
