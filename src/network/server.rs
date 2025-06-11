@@ -439,4 +439,63 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_join_game(
+        &self,
+        req: JoinGameRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) if s.can_join_game() => s,
+            _ => return Some(Message::error(
+                ChessServerError::InsufficientPermissions,
+                request_id,
+            )),
+        };
+
+        let mut game_manager = self.game_manager.write().await;
+        let mut player_manager = self.player_manager.write().await;
+
+        let player_color = match game_manager.join_game(&req.game_id, session.palyer_id.clone(), req.color_preference) {
+            Ok(color) => color,
+            Err(e) => return Some(Message::error(e, request_id)),
+        };
+
+        if let Err(e) = player_manager.add_player_to_game(&session.player_id, &req.game_id) {
+            return Some(Message::error(e, request_id));
+        }
+
+        let game = match game_manager.get_game(&req.game_id) {
+            Some(g) => g,
+            None => return Some(Message::error(
+                ChessServerError::GameNotFound { game_id: req.game_id },
+                request_id,
+            )),
+        };
+
+        let opponent_id = match player_color {
+            crate::game::Color::White => &game.black_player,
+            crate::game::Color::Black => &game.white_player,
+        };
+
+        let opponent_info = if let Some(ref opp_id) = opponent_id {
+            player_manager.get_player(opp_id).map(|p| p.get_display_info())
+        } else {
+            None
+        };
+
+        let game_state = self.create_game_state_snapshot(game, &player_manager).await;
+
+        Some(Message::response(
+            MessageType::JoinGameResponse(JoinGameResponse {
+                game_id: req.game_id,
+                player_color,
+                opponent_info,
+                game_state,
+            }),
+            request_id,
+        ))
+    }
 }
