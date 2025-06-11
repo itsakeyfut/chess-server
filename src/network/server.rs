@@ -562,4 +562,34 @@ impl ServerMessageHandler {
 
         Some(Message::success("Move made successfully", request_id))
     }
+
+    async fn handle_get_player_info(
+        &self,
+        req: GetPlayerInfoRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let player_manager = self.player_manager.read().await;
+
+        let target_player_id = req.player_id.unwrap_or_else(|| {
+            session.as_ref().map(|s| s.player_id.clone()).unwrap_or_default()
+        });
+
+        let player = match player_manager.get_player(&target_player_id) {
+            Some(p) => p,
+            None => return Some(Message::error(
+                ChessServerError::PlayerNotFound { player_id: target_player_id },
+                request_id,
+            )),
+        };
+
+        Some(Message::response(
+            MessageType::GetPlayerInfoResponse(GetPlayerInfoResponse {
+                player_info: player.get_display_info(),
+                detailed_stats: Some(player.stats.clone()),
+            }),
+            request_id,
+        ))
+    }
 }
