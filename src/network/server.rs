@@ -350,4 +350,46 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_authenticate(
+        &self,
+        req: AuthenticateRequest,
+        client_info: &crate::network::client::ClientInfo,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let mut player_manager = self.player_manager.write().await;
+
+        let player_id = match player_manager.get_player_id_by_name(&req.player_name) {
+            Some(id) => id,
+            None => {
+                match player_manager.register_player(req.player_name.clone()) {
+                    Ok(id) => id,
+                    Err(e) => return Some(Message::error(e, request_id)),
+                }
+            }
+        };
+
+        if let Some(session_id) = &client_info.session_id {
+            if let Err(e) = player_manager.session_manager_mut().authenticate_session(session_id, player_id.clone()) {
+                return Some(Message::error(e, request_id));
+            }
+        }
+
+        let player = match player_manager.get_player(&player_id) {
+            Some(p) => p,
+            None => return Some(Message::error(
+                ChessServerError::PlayerNotFound { player_id },
+                request_id,
+            )),
+        };
+
+        Some(Message::response(
+            MessageType::AuthenticateResponse(AuthenticateResponse {
+                player_id: player.id.clone(),
+                player_info: player.get_display_info(),
+                session_expires_at: current_timestamp() + self.config.security.session_timeout_secs,
+            }),
+            request_id
+        ))
+    }
 }
