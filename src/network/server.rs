@@ -746,4 +746,36 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_resign(
+        &self,
+        req: ResignRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) => s,
+            None => return Some(Message::error(
+                ChessServerError::AuthenticationFailed,
+                request_id,
+            )),
+        };
+
+        let mut game_manager = self.game_manager.write().await;
+
+        let game = match game_manager.get_game_mut(&req.game_id) {
+            Some(g) => g,
+            None => return Some(Message::error(
+                ChessServerError::GameNotFound { game_id: req.game_id },
+                request_id,
+            )),
+        };
+
+        if let Err(e) = game.resign(&session.player_id) {
+            return Some(Message::error(e, request_id));
+        }
+
+        Some(Message::success("Resignation recorded", request_id))
+    }
 }
