@@ -778,4 +778,14 @@ impl ServerMessageHandler {
 
         Some(Message::success("Resignation recorded", request_id))
     }
+
+    async fn handle_offer_draw(
+        &self,
+        _req: OfferDrawRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        _session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        Some(Message::success("draw offer sent", request_id))
+    }
 }
