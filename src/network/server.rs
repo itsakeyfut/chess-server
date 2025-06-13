@@ -592,4 +592,66 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_get_game_list(
+        &self,
+        req: GetGameListRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let game_manager = self.game_manager.read().await;
+        let player_manager = self.player_manager.read().await;
+
+        let games = game_manager.get_active_games();
+        let mut game_infos = Vec::new();
+
+        for game in games {
+            let game_info = game.get_game_info();
+            
+            // Filter
+            let mut matches = true;
+            
+            if let Some(ref status_filter) = req.filter.status {
+                let game_status = match game_info.result {
+                    crate::game::GameResult::Ongoing => {
+                        if game_info.white_player.is_some() && game_info.black_player.is_some() {
+                            GameStatus::Active
+                        } else {
+                            GameStatus::Waiting
+                        }
+                    }
+                    _ => GameStatus::Finished,
+                };
+                
+                let status_filter_ref = *status_filter;
+                if *status_filter != game_status {
+                    matches = false;
+                }
+            }
+
+            if matches {
+                game_infos.push(game_info);
+            }
+        }
+
+        // ページネーション
+        let offset = req.offset.unwrap_or(0) as usize;
+        let limit = req.limit.unwrap_or(50) as usize;
+        let total_count = game_infos.len() as u32;
+        
+        if offset < game_infos.len() {
+            let end = std::cmp::min(offset + limit, game_infos.len());
+            game_infos = game_infos[offset..end].to_vec();
+        } else {
+            game_infos.clear();
+        }
+
+        Some(Message::response(
+            MessageType::GetGameListResponse(GetGameListResponse {
+                games: game_infos,
+                total_count,
+            }),
+            request_id,
+        ))
+    }
 }
