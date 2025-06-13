@@ -712,4 +712,38 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_get_online_players(
+        &self,
+        req: GetOnlinePlayersRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let player_manager = self.player_manager.read().await;
+        let online_players = player_manager.get_online_players();
+
+        let mut player_infos: Vec<_> = online_players.iter()
+            .map(|p| p.get_display_info())
+            .collect();
+
+        // Pagination
+        let offset = req.offset.unwrap_or(0) as usize;
+        let limit = req.limit.unwrap_or(50) as usize;
+        let total_count = player_infos.len() as u32;
+
+        if offset < player_infos.len() {
+            let end = std::cmp::min(offset + limit, player_infos.len());
+            player_infos = player_infos[offset..end].to_vec();
+        } else {
+            player_infos.clear();
+        }
+
+        Some(Message::response(
+            MessageType::GetOnlinePlayersResponse(GetOnlinePlayersResponse {
+                players: player_infos,
+                total_count,
+            }),
+            request_id,
+        ))
+    }
 }
