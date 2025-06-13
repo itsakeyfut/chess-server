@@ -600,7 +600,6 @@ impl ServerMessageHandler {
         request_id: Option<String>,
     ) -> Option<Message> {
         let game_manager = self.game_manager.read().await;
-        let player_manager = self.player_manager.read().await;
 
         let games = game_manager.get_active_games();
         let mut game_infos = Vec::new();
@@ -622,8 +621,7 @@ impl ServerMessageHandler {
                     }
                     _ => GameStatus::Finished,
                 };
-                
-                let status_filter_ref = *status_filter;
+
                 if *status_filter != game_status {
                     matches = false;
                 }

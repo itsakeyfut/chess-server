@@ -314,7 +314,7 @@ pub struct GameListFilter {
     pub max_rating: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum GameStatus {
     Waiting,
     Active,
