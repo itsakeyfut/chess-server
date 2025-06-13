@@ -675,4 +675,41 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+    async fn handle_get_legal_moves(
+        &self,
+        req: GetLegalMovesRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) => s,
+            None => return Some(Message::error(
+                ChessServerError::AuthenticationFailed,
+                request_id,
+            )),
+        };
+
+        let game_manager = self.game_manager.read().await;
+
+        let game = match game_manager.get_game(&req.game_id) {
+            Some(g) => g,
+            None => return Some(Message::error(
+                ChessServerError::GameNotFound { game_id: req.game_id },
+                request_id,
+            )),
+        };
+
+        let legal_moves = game.get_legal_moves_for_player(&session.player_id);
+        let in_check = game.is_in_check();
+
+        Some(Message::response(
+            MessageType::GetLegalMovesResponse(GetLegalMovesResponse {
+                legal_moves,
+                in_check,
+            }),
+            request_id,
+        ))
+    }
 }
