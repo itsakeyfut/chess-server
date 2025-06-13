@@ -652,4 +652,27 @@ impl ServerMessageHandler {
             request_id,
         ))
     }
+
+
+    async fn handle_get_game_info(
+        &self,
+        req: GetGameInfoRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let game_manager = self.game_manager.read().await;
+
+        let game = match game_manager.get_game(&req.game_id) {
+            Some(g) => g,
+            None => return Some(Message::error(
+                ChessServerError::GameNotFound { game_id: req.game_id },
+                request_id,
+            )),
+        };
+
+        Some(Message::response(
+            MessageType::GetGameInfoResponse(game.get_game_info()),
+            request_id,
+        ))
+    }
 }
