@@ -632,7 +632,7 @@ impl ServerMessageHandler {
             }
         }
 
-        // ページネーション
+        // Pagination
         let offset = req.offset.unwrap_or(0) as usize;
         let limit = req.limit.unwrap_or(50) as usize;
         let total_count = game_infos.len() as u32;
