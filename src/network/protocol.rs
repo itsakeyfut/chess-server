@@ -131,7 +131,7 @@ pub struct JoinGameResponse {
     pub game_id: String,
     pub player_color: Color,
     pub opponent_info: Option<PlayerDisplayInfo>,
-    pub game_state: GameStateShapshot,
+    pub game_state: GameStateSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +155,7 @@ pub struct MakeMoveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameUpdateNotification {
     pub game_id: String,
-    pub game_state: GameStateShapshot,
+    pub game_state: GameStateSnapshot,
     pub last_move: Option<Move>,
     pub player_to_move: Color,
     pub is_check: bool,
@@ -292,7 +292,7 @@ pub struct TimeControl {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GameStateShapshot {
+pub struct GameStateSnapshot {
     pub board_fen: String,
     pub move_history: Vec<Move>,
     pub white_player: Option<PlayerDisplayInfo>,
@@ -546,7 +546,7 @@ pub fn create_make_move_request(game_id: String, chess_move: Move) -> Message {
 
 pub fn create_game_update_notification(
     game_id: String,
-    game_state: GameStateShapshot,
+    game_state: GameStateSnapshot,
     last_move: Option<Move>,
     player_to_move: Color,
     is_check: bool,

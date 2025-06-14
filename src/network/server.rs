@@ -863,4 +863,35 @@ impl ServerMessageHandler {
 
         Some(Message::success("Message sent", request_id))
     }
+
+    async fn create_game_state_snapshot(
+        &self,
+        game: &crate::game::GameState,
+        player_manager: &crate::player::PlayerManager,
+    ) -> GameStateSnapshot {
+        let white_player_info = if let Some(ref white_id) = game.white_player {
+            player_manager.get_player(white_id).map(|p| p.get_display_info())
+        } else {
+            None
+        };
+
+        let black_player_info = if let Some(ref black_id) = game.black_player {
+            player_manager.get_player(black_id).map(|p| p.get_display_info())
+        } else {
+            None
+        };
+
+        GameStateSnapshot {
+            board_fen: game.board.to_fen(),
+            move_history: game.move_history.clone(),
+            white_player: white_player_info,
+            black_player: black_player_info,
+            to_move: game.board.get_to_move(),
+            move_count: game.move_history.len() as u32,
+            game_result: if game.result == crate::game::GameResult::Ongoing { None } else { Some(game.result.clone()) },
+            time_control: None,
+            white_time_remaining_ms: None,
+            black_time_remaining_ms: None,
+        }
+    }
 }
