@@ -895,3 +895,29 @@ impl ServerMessageHandler {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::ServerConfig;
+
+    #[tokio::test]
+    async fn test_server_creation() {
+        let config = ServerConfig::test();
+        let server = ChessServer::new(config);
+
+        let stats = server.get_statistics().await;
+        assert!(stats.start_time > 0);
+        assert_eq!(stats.total_connections, 0);
+    }
+
+    #[tokio::test]
+    async fn test_server_info() {
+        let config = ServerConfig::test();
+        let server = ChessServer::new(config);
+
+        let info = server.get_server_info().await;
+        assert_eq!(info.server_name, "Chess Server");
+        assert!(info.features.contains(&"multiplayer".to_string()));
+    }
+}
