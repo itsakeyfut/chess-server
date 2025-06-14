@@ -1,8 +1,8 @@
-pub mod error;
 pub mod config;
+pub mod error;
 
-pub use error::*;
 pub use config::*;
+pub use error::*;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -336,7 +336,7 @@ mod tests {
         assert_eq!(sanitize_player_name("  Alice  "), "Alice");
         assert_eq!(sanitize_player_name("Player@123!"), "Player123");
         assert_eq!(sanitize_player_name("Valid_Name-123"), "Valid_Name-123");
-        
+
         let long_name = "a".repeat(30);
         assert_eq!(sanitize_player_name(&long_name).len(), 20);
     }
@@ -373,7 +373,7 @@ mod tests {
         assert!(is_valid_ip("192.168.1.1"));
         assert!(is_valid_ip("::1"));
         assert!(!is_valid_ip("invalid.ip"));
-        
+
         assert!(is_valid_port(8080));
         assert!(!is_valid_port(0));
     }
@@ -383,7 +383,7 @@ mod tests {
         let mut stats = Statistics::new();
         stats.total_games = 100;
         stats.total_moves = 5000;
-        
+
         assert!(stats.uptime_seconds() >= 0);
         assert!(stats.games_per_hour() >= 0.0);
     }

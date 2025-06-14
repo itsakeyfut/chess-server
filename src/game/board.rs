@@ -62,30 +62,84 @@ impl Board {
     }
 
     fn setup_starting_position(&mut self) {
-        self.place_piece(Position::new(0, 0).unwrap(), Piece::new(PieceType::Rook, Color::White));
-        self.place_piece(Position::new(1, 0).unwrap(), Piece::new(PieceType::Knight, Color::White));
-        self.place_piece(Position::new(2, 0).unwrap(), Piece::new(PieceType::Bishop, Color::White));
-        self.place_piece(Position::new(3, 0).unwrap(), Piece::new(PieceType::Queen, Color::White));
-        self.place_piece(Position::new(4, 0).unwrap(), Piece::new(PieceType::King, Color::White));
-        self.place_piece(Position::new(5, 0).unwrap(), Piece::new(PieceType::Bishop, Color::White));
-        self.place_piece(Position::new(6, 0).unwrap(), Piece::new(PieceType::Knight, Color::White));
-        self.place_piece(Position::new(7, 0).unwrap(), Piece::new(PieceType::Rook, Color::White));
-        
+        self.place_piece(
+            Position::new(0, 0).unwrap(),
+            Piece::new(PieceType::Rook, Color::White),
+        );
+        self.place_piece(
+            Position::new(1, 0).unwrap(),
+            Piece::new(PieceType::Knight, Color::White),
+        );
+        self.place_piece(
+            Position::new(2, 0).unwrap(),
+            Piece::new(PieceType::Bishop, Color::White),
+        );
+        self.place_piece(
+            Position::new(3, 0).unwrap(),
+            Piece::new(PieceType::Queen, Color::White),
+        );
+        self.place_piece(
+            Position::new(4, 0).unwrap(),
+            Piece::new(PieceType::King, Color::White),
+        );
+        self.place_piece(
+            Position::new(5, 0).unwrap(),
+            Piece::new(PieceType::Bishop, Color::White),
+        );
+        self.place_piece(
+            Position::new(6, 0).unwrap(),
+            Piece::new(PieceType::Knight, Color::White),
+        );
+        self.place_piece(
+            Position::new(7, 0).unwrap(),
+            Piece::new(PieceType::Rook, Color::White),
+        );
+
         for file in 0..8 {
-            self.place_piece(Position::new(file, 1).unwrap(), Piece::new(PieceType::Pawn, Color::White));
+            self.place_piece(
+                Position::new(file, 1).unwrap(),
+                Piece::new(PieceType::Pawn, Color::White),
+            );
         }
 
-        self.place_piece(Position::new(0, 7).unwrap(), Piece::new(PieceType::Rook, Color::Black));
-        self.place_piece(Position::new(1, 7).unwrap(), Piece::new(PieceType::Knight, Color::Black));
-        self.place_piece(Position::new(2, 7).unwrap(), Piece::new(PieceType::Bishop, Color::Black));
-        self.place_piece(Position::new(3, 7).unwrap(), Piece::new(PieceType::Queen, Color::Black));
-        self.place_piece(Position::new(4, 7).unwrap(), Piece::new(PieceType::King, Color::Black));
-        self.place_piece(Position::new(5, 7).unwrap(), Piece::new(PieceType::Bishop, Color::Black));
-        self.place_piece(Position::new(6, 7).unwrap(), Piece::new(PieceType::Knight, Color::Black));
-        self.place_piece(Position::new(7, 7).unwrap(), Piece::new(PieceType::Rook, Color::Black));
-        
+        self.place_piece(
+            Position::new(0, 7).unwrap(),
+            Piece::new(PieceType::Rook, Color::Black),
+        );
+        self.place_piece(
+            Position::new(1, 7).unwrap(),
+            Piece::new(PieceType::Knight, Color::Black),
+        );
+        self.place_piece(
+            Position::new(2, 7).unwrap(),
+            Piece::new(PieceType::Bishop, Color::Black),
+        );
+        self.place_piece(
+            Position::new(3, 7).unwrap(),
+            Piece::new(PieceType::Queen, Color::Black),
+        );
+        self.place_piece(
+            Position::new(4, 7).unwrap(),
+            Piece::new(PieceType::King, Color::Black),
+        );
+        self.place_piece(
+            Position::new(5, 7).unwrap(),
+            Piece::new(PieceType::Bishop, Color::Black),
+        );
+        self.place_piece(
+            Position::new(6, 7).unwrap(),
+            Piece::new(PieceType::Knight, Color::Black),
+        );
+        self.place_piece(
+            Position::new(7, 7).unwrap(),
+            Piece::new(PieceType::Rook, Color::Black),
+        );
+
         for file in 0..8 {
-            self.place_piece(Position::new(file, 6).unwrap(), Piece::new(PieceType::Pawn, Color::Black));
+            self.place_piece(
+                Position::new(file, 6).unwrap(),
+                Piece::new(PieceType::Pawn, Color::Black),
+            );
         }
     }
 
@@ -181,7 +235,7 @@ impl Board {
             let pos = Position::new(curr_file as u8, curr_rank as u8);
             if let Some(pos) = pos {
                 if !self.is_empty(pos) {
-                    return false; 
+                    return false;
                 }
             }
             curr_file += file_step;
@@ -191,7 +245,8 @@ impl Board {
     }
 
     pub fn make_move(&mut self, chess_move: &Move) -> Result<(), String> {
-        let piece = self.get_piece(chess_move.from)
+        let piece = self
+            .get_piece(chess_move.from)
             .ok_or("No piece at source position")?;
 
         if piece.color != self.to_move {
@@ -233,23 +288,27 @@ impl Board {
     }
 
     fn execute_castle(&mut self, chess_move: &Move) -> Result<(), String> {
-        let king = self.remove_piece(chess_move.from)
+        let king = self
+            .remove_piece(chess_move.from)
             .ok_or("No king at source position")?;
 
         self.place_piece(chess_move.to, king);
 
         let (rook_from, rook_to) = if chess_move.to.file > chess_move.from.file {
             // Kingside castle
-            (Position::new(7, chess_move.from.rank).unwrap(),
-            Position::new(5, chess_move.from.rank).unwrap())
+            (
+                Position::new(7, chess_move.from.rank).unwrap(),
+                Position::new(5, chess_move.from.rank).unwrap(),
+            )
         } else {
             // Queenside castle
-            (Position::new(0, chess_move.from.rank).unwrap(),
-            Position::new(3, chess_move.from.rank).unwrap())
+            (
+                Position::new(0, chess_move.from.rank).unwrap(),
+                Position::new(3, chess_move.from.rank).unwrap(),
+            )
         };
 
-        let mut rook = self.remove_piece(rook_from)
-            .ok_or("No rook for castling")?;
+        let mut rook = self.remove_piece(rook_from).ok_or("No rook for castling")?;
         rook.mark_moved();
         self.place_piece(rook_to, rook);
 
@@ -257,7 +316,8 @@ impl Board {
     }
 
     fn execute_en_passant(&mut self, chess_move: &Move) -> Result<(), String> {
-        let pawn = self.remove_piece(chess_move.from)
+        let pawn = self
+            .remove_piece(chess_move.from)
             .ok_or("No pawn for en passant")?;
 
         self.place_piece(chess_move.to, pawn);
@@ -282,27 +342,23 @@ impl Board {
 
     fn update_castling_rights(&mut self, chess_move: &Move, piece: &Piece) {
         match piece.piece_type {
-            PieceType::King => {
-                match piece.color {
-                    Color::White => {
-                        self.castling_rights.white_kingside = false;
-                        self.castling_rights.white_queenside = false;
-                    }
-                    Color::Black => {
-                        self.castling_rights.black_kingside = false;
-                        self.castling_rights.black_queenside = false;
-                    }
+            PieceType::King => match piece.color {
+                Color::White => {
+                    self.castling_rights.white_kingside = false;
+                    self.castling_rights.white_queenside = false;
                 }
-            }
-            PieceType::Rook => {
-                match (piece.color, chess_move.from.file, chess_move.from.rank) {
-                    (Color::White, 0, 0) => self.castling_rights.white_queenside = false,
-                    (Color::White, 7, 0) => self.castling_rights.white_kingside = false,
-                    (Color::Black, 0, 7) => self.castling_rights.black_queenside = false,
-                    (Color::Black, 7, 7) => self.castling_rights.black_kingside = false,
-                    _ => {}
+                Color::Black => {
+                    self.castling_rights.black_kingside = false;
+                    self.castling_rights.black_queenside = false;
                 }
-            }
+            },
+            PieceType::Rook => match (piece.color, chess_move.from.file, chess_move.from.rank) {
+                (Color::White, 0, 0) => self.castling_rights.white_queenside = false,
+                (Color::White, 7, 0) => self.castling_rights.white_kingside = false,
+                (Color::Black, 0, 7) => self.castling_rights.black_queenside = false,
+                (Color::Black, 7, 7) => self.castling_rights.black_kingside = false,
+                _ => {}
+            },
             _ => {}
         }
 
@@ -350,11 +406,21 @@ impl Board {
 
         fen.push(' ');
         let mut castling = String::new();
-        if self.castling_rights.white_kingside { castling.push('K'); }
-        if self.castling_rights.white_queenside { castling.push('Q'); }
-        if self.castling_rights.black_kingside { castling.push('k'); }
-        if self.castling_rights.black_queenside { castling.push('q'); }
-        if castling.is_empty() { castling.push('-'); }
+        if self.castling_rights.white_kingside {
+            castling.push('K');
+        }
+        if self.castling_rights.white_queenside {
+            castling.push('Q');
+        }
+        if self.castling_rights.black_kingside {
+            castling.push('k');
+        }
+        if self.castling_rights.black_queenside {
+            castling.push('q');
+        }
+        if castling.is_empty() {
+            castling.push('-');
+        }
         fen.push_str(&castling);
 
         fen.push(' ');
@@ -363,7 +429,10 @@ impl Board {
             None => fen.push('-'),
         }
 
-        fen.push_str(&format!(" {} {}", self.halfmove_clock, self.fullmove_number));
+        fen.push_str(&format!(
+            " {} {}",
+            self.halfmove_clock, self.fullmove_number
+        ));
 
         fen
     }
@@ -384,7 +453,7 @@ impl Board {
             display.push('\n');
         }
         display.push_str("  a b c d e f g h\n");
-        
+
         display
     }
 }
@@ -402,12 +471,12 @@ mod tests {
     #[test]
     fn test_starting_position() {
         let board = Board::new();
-        
+
         let king_pos = Position::from_algebraic("e1").unwrap();
         let king = board.get_piece(king_pos).unwrap();
         assert_eq!(king.piece_type, PieceType::King);
         assert_eq!(king.color, Color::White);
-        
+
         let pawn_pos = Position::from_algebraic("e2").unwrap();
         let pawn = board.get_piece(pawn_pos).unwrap();
         assert_eq!(pawn.piece_type, PieceType::Pawn);

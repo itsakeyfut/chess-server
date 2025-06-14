@@ -1,4 +1,4 @@
-use crate::utils::{current_timestamp, generate_id, ChessResult, ChessServerError};
+use crate::utils::{ChessResult, ChessServerError, current_timestamp, generate_id};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -67,7 +67,14 @@ impl PlayerStats {
         }
     }
 
-    pub fn update_after_game(&mut self, won: bool, lost: bool, drawn: bool, moves: u32, duration_secs: u64) {
+    pub fn update_after_game(
+        &mut self,
+        won: bool,
+        lost: bool,
+        drawn: bool,
+        moves: u32,
+        duration_secs: u64,
+    ) {
         self.games_played += 1;
         if won {
             self.games_won += 1;
@@ -83,7 +90,8 @@ impl PlayerStats {
         if moves > 0 {
             let game_avg_move_time = duration_secs as f64 / moves as f64;
             let total_time = self.average_move_time_secs * (self.games_played - 1) as f64;
-            self.average_move_time_secs = (total_time + game_avg_move_time) / self.games_played as f64;
+            self.average_move_time_secs =
+                (total_time + game_avg_move_time) / self.games_played as f64;
         }
 
         if moves > self.longest_game_moves {
@@ -133,7 +141,7 @@ pub struct PlayerPreferences {
 pub struct TimeControl {
     pub initial_time_secs: u32,
     pub increment_secs: u32,
-    pub name: String, 
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,7 +196,11 @@ impl Player {
         })
     }
 
-    pub fn with_connection(name: String, ip_address: String, user_agent: Option<String>) -> ChessResult<Self> {
+    pub fn with_connection(
+        name: String,
+        ip_address: String,
+        user_agent: Option<String>,
+    ) -> ChessResult<Self> {
         let mut player = Self::new(name)?;
         player.set_connection_info(ip_address, user_agent);
         Ok(player)
@@ -229,7 +241,7 @@ impl Player {
             conn_info.messages_received += 1;
         }
     }
-    
+
     pub fn disconnect(&mut self) {
         self.status = PlayerStatus::Offline;
         self.connection_info = None;
@@ -258,7 +270,7 @@ impl Player {
     pub fn remove_game(&mut self, game_id: &str) {
         self.current_games.retain(|id| id != game_id);
         self.last_game_at = Some(current_timestamp());
-        
+
         if self.current_games.is_empty() && self.status == PlayerStatus::InGame {
             self.status = PlayerStatus::Online;
         }
@@ -269,8 +281,8 @@ impl Player {
     }
 
     pub fn is_available_for_game(&self) -> bool {
-        matches!(self.status, PlayerStatus::Online | PlayerStatus::Away) &&
-        self.current_games.len() < 5 // 5 users can play at the same time
+        matches!(self.status, PlayerStatus::Online | PlayerStatus::Away)
+            && self.current_games.len() < 5 // 5 users can play at the same time
     }
 
     pub fn is_online(&self) -> bool {
@@ -293,7 +305,6 @@ impl Player {
     pub fn get_rating(&self) -> u32 {
         self.stats.rating
     }
-
 
     pub fn get_display_info(&self) -> PlayerDisplayInfo {
         PlayerDisplayInfo {
@@ -405,7 +416,11 @@ impl Default for PlayerSearchCriteria {
 impl PlayerSearchCriteria {
     pub fn matches(&self, player: &Player) -> bool {
         if let Some(ref name_filter) = self.name_contains {
-            if !player.name.to_lowercase().contains(&name_filter.to_lowercase()) {
+            if !player
+                .name
+                .to_lowercase()
+                .contains(&name_filter.to_lowercase())
+            {
                 return false;
             }
         }
@@ -518,9 +533,8 @@ mod tests {
 
     #[test]
     fn test_elo_calculation() {
-        let (player_change, opponent_change) = EloCalculator::calculate_rating_change(
-            1200, 1200, GameResult::PlayerWin
-        );
+        let (player_change, opponent_change) =
+            EloCalculator::calculate_rating_change(1200, 1200, GameResult::PlayerWin);
 
         assert!(player_change > 0);
         assert!(opponent_change < 0);
@@ -547,11 +561,15 @@ mod tests {
         let mut player = Player::with_connection(
             "TestPlayer".to_string(),
             "127.0.0.1".to_string(),
-            Some("TestClient/1.0".to_string())
-        ).unwrap();
+            Some("TestClient/1.0".to_string()),
+        )
+        .unwrap();
 
         assert!(player.connection_info.is_some());
-        assert_eq!(player.connection_info.as_ref().unwrap().ip_address, "127.0.0.1");
+        assert_eq!(
+            player.connection_info.as_ref().unwrap().ip_address,
+            "127.0.0.1"
+        );
 
         player.add_sent_data(100);
         player.add_received_data(50);
@@ -561,7 +579,7 @@ mod tests {
         assert_eq!(conn_info.bytes_received, 50);
         assert_eq!(conn_info.messages_sent, 1);
         assert_eq!(conn_info.messages_received, 1);
-        
+
         player.disconnect();
         assert!(player.connection_info.is_none());
         assert_eq!(player.status, PlayerStatus::Offline);
@@ -570,11 +588,11 @@ mod tests {
     #[test]
     fn test_player_preferences() {
         let mut player = Player::new("TestPlayer".to_string()).unwrap();
-        
+
         let mut prefs = PlayerPreferences::default();
         prefs.auto_accept_draws = true;
         prefs.piece_style = "modern".to_string();
-        
+
         player.update_preferences(prefs.clone());
         assert_eq!(player.preferences.auto_accept_draws, true);
         assert_eq!(player.preferences.piece_style, "modern");
@@ -583,7 +601,7 @@ mod tests {
     #[test]
     fn test_time_tracking() {
         let player = Player::new("TestPlayer".to_string()).unwrap();
-        
+
         // New player might be able to be seen
         assert!(player.time_since_last_seen() < 5);
         assert!(!player.is_idle(300)); // 5 min

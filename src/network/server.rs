@@ -2,14 +2,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{RwLock, Mutex};
-use tokio::time::{interval, Duration};
+use tokio::sync::RwLock;
+use tokio::time::{Duration, interval};
 
-use crate::game::{GameManager, Move, Position};
-use crate::network::client::{Client, ClientManager, ClientState, MessageHandler};
+use crate::game::GameManager;
+use crate::network::client::{Client, ClientManager, MessageHandler};
 use crate::network::protocol::*;
 use crate::player::{PlayerManager, Session};
-use crate::utils::{current_timestamp, ChessResult, ChessServerError, ServerConfig};
+use crate::utils::{ChessResult, ChessServerError, ServerConfig, current_timestamp};
 
 pub struct ChessServer {
     config: ServerConfig,
@@ -65,7 +65,8 @@ impl ChessServer {
 
     pub async fn start(&self) -> ChessResult<()> {
         let addr = format!("{}:{}", self.config.server.host, self.config.server.port);
-        let listener = TcpListener::bind(&addr).await
+        let listener = TcpListener::bind(&addr)
+            .await
             .map_err(|e| ChessServerError::IoError {
                 details: format!("Failed to bind to {}: {}", addr, e),
             })?;
@@ -91,7 +92,9 @@ impl ChessServer {
 
             match listener.accept().await {
                 Ok((stream, addr)) => {
-                    if self.client_manager.get_client_count().await >= self.config.server.max_connections {
+                    if self.client_manager.get_client_count().await
+                        >= self.config.server.max_connections
+                    {
                         let _ = stream.shutdown().await;
                         continue;
                     }
@@ -173,7 +176,7 @@ impl ChessServer {
 
                     {
                         let is_running = is_running.read().await;
-                        if!*is_running {
+                        if !*is_running {
                             break;
                         }
                     }
@@ -256,32 +259,69 @@ impl MessageHandler for ServerMessageHandler {
 
         match message.message_type {
             MessageType::Connect(req) => self.handle_connect(req, &client_info, message.id).await,
-            MessageType::Authenticate(req) => self.handle_authenticate(req, &client_info, message.id).await,
-            MessageType::CreateGame(req) => self.handle_create_game(req, &client_info, session, message.id).await,
-            MessageType::JoinGame(req) => self.handle_join_game(req, &client_info, session, message.id).await,
-            MessageType::MakeMove(req) => self.handle_make_move(req, &client_info, session, message.id).await,
-            MessageType::GetPlayerInfo(req) => self.handle_get_player_info(req, &client_info, session, message.id).await,
-            MessageType::GetGameList(req) => self.handle_get_game_list(req, &client_info, message.id).await,
-            MessageType::GetGameInfo(req) => self.handle_get_game_info(req, &client_info, message.id).await,
-            MessageType::GetLegalMoves(req) => self.handle_get_legal_moves(req, &client_info, session, message.id).await,
-            MessageType::GetOnlinePlayers(req) => self.handle_get_online_players(req, &client_info, message.id).await,
-            MessageType::Resign(req) => self.handle_resign(req, &client_info, session, message.id).await,
-            MessageType::OfferDraw(req) => self.handle_offer_draw(req, &client_info, session, message.id).await,
-            MessageType::RespondToDraw(req) => self.handle_respond_to_draw(req, &client_info, session, message.id).await,
-            MessageType::SendMessage(req) => self.handle_send_message(req, &client_info, session, message.id).await,
+            MessageType::Authenticate(req) => {
+                self.handle_authenticate(req, &client_info, message.id)
+                    .await
+            }
+            MessageType::CreateGame(req) => {
+                self.handle_create_game(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::JoinGame(req) => {
+                self.handle_join_game(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::MakeMove(req) => {
+                self.handle_make_move(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::GetPlayerInfo(req) => {
+                self.handle_get_player_info(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::GetGameList(req) => {
+                self.handle_get_game_list(req, &client_info, message.id)
+                    .await
+            }
+            MessageType::GetGameInfo(req) => {
+                self.handle_get_game_info(req, &client_info, message.id)
+                    .await
+            }
+            MessageType::GetLegalMoves(req) => {
+                self.handle_get_legal_moves(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::GetOnlinePlayers(req) => {
+                self.handle_get_online_players(req, &client_info, message.id)
+                    .await
+            }
+            MessageType::Resign(req) => {
+                self.handle_resign(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::OfferDraw(req) => {
+                self.handle_offer_draw(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::RespondToDraw(req) => {
+                self.handle_respond_to_draw(req, &client_info, session, message.id)
+                    .await
+            }
+            MessageType::SendMessage(req) => {
+                self.handle_send_message(req, &client_info, session, message.id)
+                    .await
+            }
             MessageType::Ping => Some(Message::response(MessageType::Pong, message.id)),
             MessageType::Heartbeat => {
                 // update client's last activity
                 None
             }
-            _ => {
-                Some(Message::error(
-                    ChessServerError::UnsupportedMessageType {
-                        message_type: message.type_name().to_string(),
-                    },
-                    message.id,
-                ))
-            }
+            _ => Some(Message::error(
+                ChessServerError::UnsupportedMessageType {
+                    message_type: message.type_name().to_string(),
+                },
+                message.id,
+            )),
         }
     }
 }
@@ -300,30 +340,42 @@ impl ServerMessageHandler {
             // New player
             let player_id = match player_manager.get_player_id_by_name(&player_name) {
                 Some(existing_id) => existing_id,
-                None => {
-                    match player_manager.register_player(player_name) {
-                        Ok(id) => id,
-                        Err(e) => return Some(Message::error(e, request_id)),
-                    }
-                }
+                None => match player_manager.register_player(player_name) {
+                    Ok(id) => id,
+                    Err(e) => return Some(Message::error(e, request_id)),
+                },
             };
 
-            match player_manager.create_player_session(&player_id, client_info.address, req.user_agent.clone()) {
+            match player_manager.create_player_session(
+                &player_id,
+                client_info.address,
+                req.user_agent.clone(),
+            ) {
                 Ok(session_id) => (session_id, player_id),
                 Err(e) => return Some(Message::error(e, request_id)),
             }
         } else {
             // Guest
-            match player_manager.session_manager_mut().create_guest_session(client_info.address, req.user_agent.clone()) {
+            match player_manager
+                .session_manager_mut()
+                .create_guest_session(client_info.address, req.user_agent.clone())
+            {
                 Ok(session_id) => {
-                    let session = player_manager.session_manager().get_session(&session_id).unwrap();
+                    let session = player_manager
+                        .session_manager()
+                        .get_session(&session_id)
+                        .unwrap();
                     (session_id.clone(), session.player_id.clone())
-                },
+                }
                 Err(e) => return Some(Message::error(e, request_id)),
             }
         };
 
-        if let Err(_) = self.client_manager.associate_session(&client_info.id, session_id.clone()).await {
+        if let Err(_) = self
+            .client_manager
+            .associate_session(&client_info.id, session_id.clone())
+            .await
+        {
             return Some(Message::error(
                 ChessServerError::InternalServerError {
                     details: "Failed to associate session".to_string(),
@@ -332,7 +384,11 @@ impl ServerMessageHandler {
             ));
         }
 
-        if let Err(_) = self.client_manager.associate_player(&client_info.id, player_id.clone()).await {
+        if let Err(_) = self
+            .client_manager
+            .associate_player(&client_info.id, player_id.clone())
+            .await
+        {
             return Some(Message::error(
                 ChessServerError::InternalServerError {
                     details: "Failed to associate player".to_string(),
@@ -361,26 +417,29 @@ impl ServerMessageHandler {
 
         let player_id = match player_manager.get_player_id_by_name(&req.player_name) {
             Some(id) => id,
-            None => {
-                match player_manager.register_player(req.player_name.clone()) {
-                    Ok(id) => id,
-                    Err(e) => return Some(Message::error(e, request_id)),
-                }
-            }
+            None => match player_manager.register_player(req.player_name.clone()) {
+                Ok(id) => id,
+                Err(e) => return Some(Message::error(e, request_id)),
+            },
         };
 
         if let Some(session_id) = &client_info.session_id {
-            if let Err(e) = player_manager.session_manager_mut().authenticate_session(session_id, player_id.clone()) {
+            if let Err(e) = player_manager
+                .session_manager_mut()
+                .authenticate_session(session_id, player_id.clone())
+            {
                 return Some(Message::error(e, request_id));
             }
         }
 
         let player = match player_manager.get_player(&player_id) {
             Some(p) => p,
-            None => return Some(Message::error(
-                ChessServerError::PlayerNotFound { player_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::PlayerNotFound { player_id },
+                    request_id,
+                ));
+            }
         };
 
         Some(Message::response(
@@ -389,7 +448,7 @@ impl ServerMessageHandler {
                 player_info: player.get_display_info(),
                 session_expires_at: current_timestamp() + self.config.security.session_timeout_secs,
             }),
-            request_id
+            request_id,
         ))
     }
 
@@ -402,10 +461,12 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         let session = match session {
             Some(s) if s.can_create_game() => s,
-            _ => return Some(Message::error(
-                ChessServerError::InsufficientPermissions,
-                request_id,
-            )),
+            _ => {
+                return Some(Message::error(
+                    ChessServerError::InsufficientPermissions,
+                    request_id,
+                ));
+            }
         };
 
         let mut game_manager = self.game_manager.write().await;
@@ -413,13 +474,15 @@ impl ServerMessageHandler {
 
         let game_id = game_manager.create_game();
 
-        let player_color = match game_manager.join_game(&game_id, session.player_id.clone(), req.color_preference) {
-            Ok(color) => color,
-            Err(e) => {
-                game_manager.remove_game(&game_id);
-                return Some(Message::error(e, request_id));
-            }
-        };
+        let player_color =
+            match game_manager.join_game(&game_id, session.player_id.clone(), req.color_preference)
+            {
+                Ok(color) => color,
+                Err(e) => {
+                    game_manager.remove_game(&game_id);
+                    return Some(Message::error(e, request_id));
+                }
+            };
 
         if let Err(e) = player_manager.add_player_to_game(&session.player_id, &game_id) {
             game_manager.remove_game(&game_id);
@@ -449,16 +512,22 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         let session = match session {
             Some(s) if s.can_join_game() => s,
-            _ => return Some(Message::error(
-                ChessServerError::InsufficientPermissions,
-                request_id,
-            )),
+            _ => {
+                return Some(Message::error(
+                    ChessServerError::InsufficientPermissions,
+                    request_id,
+                ));
+            }
         };
 
         let mut game_manager = self.game_manager.write().await;
         let mut player_manager = self.player_manager.write().await;
 
-        let player_color = match game_manager.join_game(&req.game_id, session.palyer_id.clone(), req.color_preference) {
+        let player_color = match game_manager.join_game(
+            &req.game_id,
+            session.palyer_id.clone(),
+            req.color_preference,
+        ) {
             Ok(color) => color,
             Err(e) => return Some(Message::error(e, request_id)),
         };
@@ -469,10 +538,14 @@ impl ServerMessageHandler {
 
         let game = match game_manager.get_game(&req.game_id) {
             Some(g) => g,
-            None => return Some(Message::error(
-                ChessServerError::GameNotFound { game_id: req.game_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::GameNotFound {
+                        game_id: req.game_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
         let opponent_id = match player_color {
@@ -481,7 +554,9 @@ impl ServerMessageHandler {
         };
 
         let opponent_info = if let Some(ref opp_id) = opponent_id {
-            player_manager.get_player(opp_id).map(|p| p.get_display_info())
+            player_manager
+                .get_player(opp_id)
+                .map(|p| p.get_display_info())
         } else {
             None
         };
@@ -504,20 +579,24 @@ impl ServerMessageHandler {
         req: MakeMoveRequest,
         _client_info: &crate::network::client::ClientInfo,
         session: Option<Session>,
-        request_id: Option<String>
+        request_id: Option<String>,
     ) -> Option<Message> {
         let session = match session {
             Some(s) => s,
-            None => return Some(Message::error(
-                ChessServerError::AuthenticationFailed,
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::AuthenticationFailed,
+                    request_id,
+                ));
+            }
         };
 
         let mut game_manager = self.game_manager.write().await;
         let player_manager = self.player_manager.read().await;
 
-        if let Err(e) = game_manager.make_move(&req.game_id, &session.player_id, req.chess_move.clone()) {
+        if let Err(e) =
+            game_manager.make_move(&req.game_id, &session.player_id, req.chess_move.clone())
+        {
             return Some(Message::error(e, request_id));
         }
 
@@ -528,26 +607,35 @@ impl ServerMessageHandler {
 
         let game = match game_manager.get_game(&req.game_id) {
             Some(g) => g,
-            None => return Some(Message::error(
-                ChessServerError::GameNotFound { game_id: req.game_id.clone() },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::GameNotFound {
+                        game_id: req.game_id.clone(),
+                    },
+                    request_id,
+                ));
+            }
         };
 
         let game_state = self.create_game_state_snapshot(game, &player_manager).await;
-        let update_notification = Message::notification(MessageType::GameUpdate(GameUpdateNotification {
-            game_id: req.game_id.clone(),
-            game_state,
-            last_move: Some(req.chess_move),
-            player_to_move: game.board.get_to_move(),
-            is_check: game.is_in_check(),
-            game_result: if game.result == crate::game::GameResult::Ongoing { None } else { Some(game.result.clone()) },
-        }));
+        let update_notification =
+            Message::notification(MessageType::GameUpdate(GameUpdateNotification {
+                game_id: req.game_id.clone(),
+                game_state,
+                last_move: Some(req.chess_move),
+                player_to_move: game.board.get_to_move(),
+                is_check: game.is_in_check(),
+                game_result: if game.result == crate::game::GameResult::Ongoing {
+                    None
+                } else {
+                    Some(game.result.clone())
+                },
+            }));
 
-        let player_ids = vec![
-            game.white_player.clone(),
-            game.black_player.clone(),
-        ].into_iter().flatten().collect::<Vec<_>>();
+        let player_ids = vec![game.white_player.clone(), game.black_player.clone()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
 
         drop(player_manager);
         drop(game_manager);
@@ -556,7 +644,9 @@ impl ServerMessageHandler {
             let client_manager = Arc::clone(&self.client_manager);
             let notification = update_notification.clone();
             async move {
-                client_manager.send_to_players(&player_ids, notification).await;
+                client_manager
+                    .send_to_players(&player_ids, notification)
+                    .await;
             }
         });
 
@@ -573,15 +663,22 @@ impl ServerMessageHandler {
         let player_manager = self.player_manager.read().await;
 
         let target_player_id = req.player_id.unwrap_or_else(|| {
-            session.as_ref().map(|s| s.player_id.clone()).unwrap_or_default()
+            session
+                .as_ref()
+                .map(|s| s.player_id.clone())
+                .unwrap_or_default()
         });
 
         let player = match player_manager.get_player(&target_player_id) {
             Some(p) => p,
-            None => return Some(Message::error(
-                ChessServerError::PlayerNotFound { player_id: target_player_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::PlayerNotFound {
+                        player_id: target_player_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
         Some(Message::response(
@@ -606,10 +703,10 @@ impl ServerMessageHandler {
 
         for game in games {
             let game_info = game.get_game_info();
-            
+
             // Filter
             let mut matches = true;
-            
+
             if let Some(ref status_filter) = req.filter.status {
                 let game_status = match game_info.result {
                     crate::game::GameResult::Ongoing => {
@@ -636,7 +733,7 @@ impl ServerMessageHandler {
         let offset = req.offset.unwrap_or(0) as usize;
         let limit = req.limit.unwrap_or(50) as usize;
         let total_count = game_infos.len() as u32;
-        
+
         if offset < game_infos.len() {
             let end = std::cmp::min(offset + limit, game_infos.len());
             game_infos = game_infos[offset..end].to_vec();
@@ -653,7 +750,6 @@ impl ServerMessageHandler {
         ))
     }
 
-
     async fn handle_get_game_info(
         &self,
         req: GetGameInfoRequest,
@@ -664,10 +760,14 @@ impl ServerMessageHandler {
 
         let game = match game_manager.get_game(&req.game_id) {
             Some(g) => g,
-            None => return Some(Message::error(
-                ChessServerError::GameNotFound { game_id: req.game_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::GameNotFound {
+                        game_id: req.game_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
         Some(Message::response(
@@ -685,20 +785,26 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         let session = match session {
             Some(s) => s,
-            None => return Some(Message::error(
-                ChessServerError::AuthenticationFailed,
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::AuthenticationFailed,
+                    request_id,
+                ));
+            }
         };
 
         let game_manager = self.game_manager.read().await;
 
         let game = match game_manager.get_game(&req.game_id) {
             Some(g) => g,
-            None => return Some(Message::error(
-                ChessServerError::GameNotFound { game_id: req.game_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::GameNotFound {
+                        game_id: req.game_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
         let legal_moves = game.get_legal_moves_for_player(&session.player_id);
@@ -722,7 +828,8 @@ impl ServerMessageHandler {
         let player_manager = self.player_manager.read().await;
         let online_players = player_manager.get_online_players();
 
-        let mut player_infos: Vec<_> = online_players.iter()
+        let mut player_infos: Vec<_> = online_players
+            .iter()
             .map(|p| p.get_display_info())
             .collect();
 
@@ -756,20 +863,26 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         let session = match session {
             Some(s) => s,
-            None => return Some(Message::error(
-                ChessServerError::AuthenticationFailed,
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::AuthenticationFailed,
+                    request_id,
+                ));
+            }
         };
 
         let mut game_manager = self.game_manager.write().await;
 
         let game = match game_manager.get_game_mut(&req.game_id) {
             Some(g) => g,
-            None => return Some(Message::error(
-                ChessServerError::GameNotFound { game_id: req.game_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::GameNotFound {
+                        game_id: req.game_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
         if let Err(e) = game.resign(&session.player_id) {
@@ -808,38 +921,45 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         let session = match session {
             Some(s) if s.can_chat() => s,
-            _ => return Some(Message::error(
-                ChessServerError::InsufficientPermissions,
-                request_id,
-            )),
+            _ => {
+                return Some(Message::error(
+                    ChessServerError::InsufficientPermissions,
+                    request_id,
+                ));
+            }
         };
 
         let player_manager = self.player_manager.read().await;
         let sender = match player_manager.get_player(&session.player_id) {
             Some(p) => p.get_display_info(),
-            None => return Some(Message::error(
-                ChessServerError::PlayerNotFound { player_id: session.player_id },
-                request_id,
-            )),
+            None => {
+                return Some(Message::error(
+                    ChessServerError::PlayerNotFound {
+                        player_id: session.player_id,
+                    },
+                    request_id,
+                ));
+            }
         };
 
-        let chat_notification = Message::notification(MessageType::ChatMessage(ChatMessageNotification {
-            game_id: req.game_id.clone(),
-            sender,
-            message: req.message,
-            message_type: req.message_type,
-            timestamp: current_timestamp(),
-        }));
+        let chat_notification =
+            Message::notification(MessageType::ChatMessage(ChatMessageNotification {
+                game_id: req.game_id.clone(),
+                sender,
+                message: req.message,
+                message_type: req.message_type,
+                timestamp: current_timestamp(),
+            }));
 
         drop(player_manager);
 
         if let Some(game_id) = req.game_id {
             let game_manager = self.game_manager.read().await;
             if let Some(game) = game_manager.get_game(&game_id) {
-                let player_ids = vec![
-                    game.white_player.clone(),
-                    game.black_player.clone(),
-                ].into_iter().flatten().collect::<Vec<_>>();
+                let player_ids = vec![game.white_player.clone(), game.black_player.clone()]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>();
 
                 drop(game_manager);
 
@@ -847,7 +967,9 @@ impl ServerMessageHandler {
                     let client_manager = Arc::clone(&self.client_manager);
                     let notification = chat_notification.clone();
                     async move {
-                        client_manager.send_to_players(&player_ids, notification).await;
+                        client_manager
+                            .send_to_players(&player_ids, notification)
+                            .await;
                     }
                 });
             }
@@ -856,7 +978,9 @@ impl ServerMessageHandler {
                 let client_manager = Arc::clone(&self.client_manager);
                 let notification = chat_notification.clone();
                 async move {
-                    client_manager.broadcast_to_authenticated(notification).await;
+                    client_manager
+                        .broadcast_to_authenticated(notification)
+                        .await;
                 }
             });
         }
@@ -870,13 +994,17 @@ impl ServerMessageHandler {
         player_manager: &crate::player::PlayerManager,
     ) -> GameStateSnapshot {
         let white_player_info = if let Some(ref white_id) = game.white_player {
-            player_manager.get_player(white_id).map(|p| p.get_display_info())
+            player_manager
+                .get_player(white_id)
+                .map(|p| p.get_display_info())
         } else {
             None
         };
 
         let black_player_info = if let Some(ref black_id) = game.black_player {
-            player_manager.get_player(black_id).map(|p| p.get_display_info())
+            player_manager
+                .get_player(black_id)
+                .map(|p| p.get_display_info())
         } else {
             None
         };
@@ -888,7 +1016,11 @@ impl ServerMessageHandler {
             black_player: black_player_info,
             to_move: game.board.get_to_move(),
             move_count: game.move_history.len() as u32,
-            game_result: if game.result == crate::game::GameResult::Ongoing { None } else { Some(game.result.clone()) },
+            game_result: if game.result == crate::game::GameResult::Ongoing {
+                None
+            } else {
+                Some(game.result.clone())
+            },
             time_control: None,
             white_time_remaining_ms: None,
             black_time_remaining_ms: None,

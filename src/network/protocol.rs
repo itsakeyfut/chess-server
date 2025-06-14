@@ -381,7 +381,11 @@ impl Message {
         )
     }
 
-    pub fn success_with_data(message: &str, data: serde_json::Value, request_id: Option<String>) -> Self {
+    pub fn success_with_data(
+        message: &str,
+        data: serde_json::Value,
+        request_id: Option<String>,
+    ) -> Self {
         Self::response(
             MessageType::Success(SuccessResponse {
                 message: message.to_string(),
@@ -408,7 +412,7 @@ impl Message {
         let message: Message = serde_json::from_str(json)?;
 
         if message.version != PROTOCOL_VERSION {
-            return Err(ChessServerError::ProtocolVersionMismatch { 
+            return Err(ChessServerError::ProtocolVersionMismatch {
                 expected: PROTOCOL_VERSION.to_string(),
                 actual: message.version,
             });
@@ -418,8 +422,8 @@ impl Message {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> ChessResult<Self> {
-        let json = String::from_utf8(bytes.to_vec())
-            .map_err(|_| ChessServerError::InvalidMessage {
+        let json =
+            String::from_utf8(bytes.to_vec()).map_err(|_| ChessServerError::InvalidMessage {
                 details: "Invalid UTF-8 encoding".to_string(),
             })?;
 
@@ -431,45 +435,48 @@ impl Message {
     }
 
     pub fn is_request(&self) -> bool {
-        matches!(self.message_type,
-            MessageType::Connect(_) |
-            MessageType::Authenticate(_) |
-            MessageType::CreateGame(_) |
-            MessageType::JoinGame(_) |
-            MessageType::MakeMove(_) |
-            MessageType::GetPlayerInfo(_) |
-            MessageType::GetGameList(_) |
-            MessageType::GetGameInfo(_) |
-            MessageType::GetLegalMoves(_) |
-            MessageType::GetOnlinePlayers(_) |
-            MessageType::SendMessage(_) |
-            MessageType::OfferDraw(_) |
-            MessageType::Resign(_)
+        matches!(
+            self.message_type,
+            MessageType::Connect(_)
+                | MessageType::Authenticate(_)
+                | MessageType::CreateGame(_)
+                | MessageType::JoinGame(_)
+                | MessageType::MakeMove(_)
+                | MessageType::GetPlayerInfo(_)
+                | MessageType::GetGameList(_)
+                | MessageType::GetGameInfo(_)
+                | MessageType::GetLegalMoves(_)
+                | MessageType::GetOnlinePlayers(_)
+                | MessageType::SendMessage(_)
+                | MessageType::OfferDraw(_)
+                | MessageType::Resign(_)
         )
     }
 
     pub fn is_response(&self) -> bool {
-        matches!(self.message_type,
-            MessageType::ConnectResponse(_) |
-            MessageType::AuthenticateResponse(_) |
-            MessageType::CreateGameResponse(_) |
-            MessageType::JoinGameResponse(_) |
-            MessageType::GetPlayerInfoResponse(_) |
-            MessageType::GetGameListResponse(_) |
-            MessageType::GetGameInfoResponse(_) |
-            MessageType::GetLegalMovesResponse(_) |
-            MessageType::GetOnlinePlayersResponse(_) |
-            MessageType::Success(_) |
-            MessageType::Error(_)
+        matches!(
+            self.message_type,
+            MessageType::ConnectResponse(_)
+                | MessageType::AuthenticateResponse(_)
+                | MessageType::CreateGameResponse(_)
+                | MessageType::JoinGameResponse(_)
+                | MessageType::GetPlayerInfoResponse(_)
+                | MessageType::GetGameListResponse(_)
+                | MessageType::GetGameInfoResponse(_)
+                | MessageType::GetLegalMovesResponse(_)
+                | MessageType::GetOnlinePlayersResponse(_)
+                | MessageType::Success(_)
+                | MessageType::Error(_)
         )
     }
 
     pub fn is_notification(&self) -> bool {
-        matches!(self.message_type,
-            MessageType::GameUpdate(_) |
-            MessageType::MoveUpdate(_) |
-            MessageType::ChatMessage(_) |
-            MessageType::Heartbeat
+        matches!(
+            self.message_type,
+            MessageType::GameUpdate(_)
+                | MessageType::MoveUpdate(_)
+                | MessageType::ChatMessage(_)
+                | MessageType::Heartbeat
         )
     }
 
@@ -528,7 +535,10 @@ impl Default for GameListFilter {
     }
 }
 
-pub fn create_connect_request(player_name: Option<String>, client_version: Option<String>) -> Message {
+pub fn create_connect_request(
+    player_name: Option<String>,
+    client_version: Option<String>,
+) -> Message {
     Message::request(MessageType::Connect(ConnectRequest {
         player_name,
         client_version,
@@ -571,7 +581,7 @@ mod tests {
     fn test_message_serialization() {
         let connect_msg = create_connect_request(
             Some("TestPlayer".to_string()),
-            Some("TestClient/1.0".to_string())
+            Some("TestClient/1.0".to_string()),
         );
 
         let json = connect_msg.to_json().unwrap();
@@ -585,11 +595,11 @@ mod tests {
     fn test_move_message() {
         let chess_move = Move::new(
             Position::from_algebraic("e2").unwrap(),
-            Position::from_algebraic("e4").unwrap()
+            Position::from_algebraic("e4").unwrap(),
         );
 
         let move_msg = create_make_move_request("game123".to_string(), chess_move);
-        
+
         let json = move_msg.to_json().unwrap();
         let deserialized = Message::from_json(&json).unwrap();
 
@@ -598,7 +608,7 @@ mod tests {
                 assert_eq!(req.game_id, "game123");
                 assert_eq!(req.chess_move.from.to_algebraic(), "e2");
                 assert_eq!(req.chess_move.to.to_algebraic(), "e4");
-            },
+            }
             _ => panic!("Expected MakeMove message"),
         }
     }
@@ -614,13 +624,13 @@ mod tests {
     fn test_protocol_version_mismatch() {
         let mut connect_msg = create_connect_request(
             Some("TestPlayer".to_string()),
-            Some("TestClient/1.0".to_string())
+            Some("TestClient/1.0".to_string()),
         );
         connect_msg.version = "2.0".to_string();
 
         let json = connect_msg.to_json().unwrap();
         let result = Message::from_json(&json);
-        
+
         assert!(result.is_err());
         if let Err(ChessServerError::ProtocolVersionMismatch { .. }) = result {
             // Expected error
@@ -658,7 +668,7 @@ mod tests {
             MessageType::Error(err_resp) => {
                 assert_eq!(err_resp.error_code, "1001");
                 assert!(err_resp.message.contains("test123"));
-            },
+            }
             _ => panic!("Expected Error message"),
         }
     }

@@ -330,8 +330,9 @@ impl MoveValidator {
         // Normal move
         if let Some(to) = Position::new(from.file, (from.rank as i8 + direction) as u8) {
             if board.is_empty(to) {
-                if (piece.color == Color::White && to.rank == 7) ||
-                    (piece.color == Color::Black && to.rank == 0) {
+                if (piece.color == Color::White && to.rank == 7)
+                    || (piece.color == Color::Black && to.rank == 0)
+                {
                     moves.push(Move::with_promotion(from, to, PieceType::Queen));
                     moves.push(Move::with_promotion(from, to, PieceType::Rook));
                     moves.push(Move::with_promotion(from, to, PieceType::Bishop));
@@ -341,7 +342,9 @@ impl MoveValidator {
                 }
 
                 if !piece.has_moved {
-                    if let Some(to2) = Position::new(from.file, (from.rank as i8 + 2 * direction) as u8) {
+                    if let Some(to2) =
+                        Position::new(from.file, (from.rank as i8 + 2 * direction) as u8)
+                    {
                         if board.is_empty(to2) {
                             moves.push(Move::new(from, to2));
                         }
@@ -352,10 +355,14 @@ impl MoveValidator {
 
         // Attack
         for file_offset in [-1, 1] {
-            if let Some(to) = Position::new((from.file as i8 + file_offset) as u8, (from.rank as i8 + direction) as u8) {
+            if let Some(to) = Position::new(
+                (from.file as i8 + file_offset) as u8,
+                (from.rank as i8 + direction) as u8,
+            ) {
                 if board.is_occupied_by(to, piece.color.opposite()) {
-                    if (piece.color == Color::White && to.rank == 7) ||
-                        (piece.color == Color::Black && to.rank == 0) {
+                    if (piece.color == Color::White && to.rank == 7)
+                        || (piece.color == Color::Black && to.rank == 0)
+                    {
                         moves.push(Move::with_promotion(from, to, PieceType::Queen));
                         moves.push(Move::with_promotion(from, to, PieceType::Rook));
                         moves.push(Move::with_promotion(from, to, PieceType::Bishop));
@@ -389,7 +396,8 @@ impl MoveValidator {
                     if board.is_empty(to) {
                         moves.push(Move::new(from, to));
                     } else {
-                        if board.is_occupied_by(to, board.get_piece(from).unwrap().color.opposite()) {
+                        if board.is_occupied_by(to, board.get_piece(from).unwrap().color.opposite())
+                        {
                             moves.push(Move::new(from, to));
                         }
                         break;
@@ -406,8 +414,14 @@ impl MoveValidator {
     fn generate_knight_moves(from: Position) -> Vec<Move> {
         let mut moves = Vec::new();
         let knight_moves = [
-            (2, 1), (2, -1), (-2, 1), (-2, -1),
-            (1, 2), (1, -2), (-1, 2), (-1, -2),
+            (2, 1),
+            (2, -1),
+            (-2, 1),
+            (-2, -1),
+            (1, 2),
+            (1, -2),
+            (-1, 2),
+            (-1, -2),
         ];
 
         for (file_offset, rank_offset) in knight_moves {
@@ -435,7 +449,8 @@ impl MoveValidator {
                     if board.is_empty(to) {
                         moves.push(Move::new(from, to));
                     } else {
-                        if board.is_occupied_by(to, board.get_piece(from).unwrap().color.opposite()) {
+                        if board.is_occupied_by(to, board.get_piece(from).unwrap().color.opposite())
+                        {
                             moves.push(Move::new(from, to));
                         }
                         break;
@@ -505,11 +520,13 @@ impl MoveValidator {
     }
 
     pub fn is_checkmate(board: &Board) -> bool {
-        Self::is_in_check(board, board.get_to_move()) && Self::generate_legal_moves(board).is_empty()
+        Self::is_in_check(board, board.get_to_move())
+            && Self::generate_legal_moves(board).is_empty()
     }
 
     pub fn is_stalemate(board: &Board) -> bool {
-        !Self::is_in_check(board, board.get_to_move()) && Self::generate_legal_moves(board).is_empty()
+        !Self::is_in_check(board, board.get_to_move())
+            && Self::generate_legal_moves(board).is_empty()
     }
 
     pub fn is_draw_by_fifty_move_rule(board: &Board) -> bool {

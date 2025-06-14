@@ -154,7 +154,10 @@ impl ChessServerError {
     }
 
     pub fn is_client_error(&self) -> bool {
-        matches!(self.error_code().chars().next(), Some('1'..='4') | Some('6'..='8'))
+        matches!(
+            self.error_code().chars().next(),
+            Some('1'..='4') | Some('6'..='8')
+        )
     }
 
     pub fn is_server_error(&self) -> bool {
@@ -162,11 +165,12 @@ impl ChessServerError {
     }
 
     pub fn is_retryable(&self) -> bool {
-        matches!(self,
-            ChessServerError::ConnectionTimeout |
-            ChessServerError::ServerOverloaded |
-            ChessServerError::ConnectionLost |
-            ChessServerError::IoError { .. }
+        matches!(
+            self,
+            ChessServerError::ConnectionTimeout
+                | ChessServerError::ServerOverloaded
+                | ChessServerError::ConnectionLost
+                | ChessServerError::IoError { .. }
         )
     }
 }
@@ -274,9 +278,12 @@ mod tests {
     fn test_retryable_errors() {
         assert!(ChessServerError::ConnectionTimeout.is_retryable());
         assert!(ChessServerError::ServerOverloaded.is_retryable());
-        assert!(!ChessServerError::GameNotFound {
-            game_id: "test".to_string()
-        }.is_retryable());
+        assert!(
+            !ChessServerError::GameNotFound {
+                game_id: "test".to_string()
+            }
+            .is_retryable()
+        );
     }
 
     #[test]

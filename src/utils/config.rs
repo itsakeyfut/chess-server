@@ -90,8 +90,8 @@ impl Default for GameConfig {
     fn default() -> Self {
         Self {
             max_games_per_player: 5,
-            game_timeout_secs: 3600, // 1 hour
-            move_timeout_secs: 300,  // 5 min
+            game_timeout_secs: 3600,    // 1 hour
+            move_timeout_secs: 300,     // 5 min
             cleanup_interval_secs: 300, // 5 min
             max_concurrent_games: 10000,
             allow_spectators: true,
@@ -107,7 +107,8 @@ impl Default for SecurityConfig {
             rate_limit_moves_per_minute: 60,
             rate_limit_connections_per_ip: 10,
             max_player_name_length: 20,
-            allowed_chars_in_name: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".to_string(),
+            allowed_chars_in_name:
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".to_string(),
             session_timeout_secs: 86400, // 24 hours
         }
     }
@@ -127,8 +128,8 @@ impl Default for LoggingConfig {
 
 impl ServerConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> ChessResult<Self> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| ChessServerError::ConfigurationError {
+        let content =
+            fs::read_to_string(path).map_err(|e| ChessServerError::ConfigurationError {
                 details: format!("Failed to read config file: {}", e),
             })?;
 
@@ -251,15 +252,14 @@ impl ServerConfig {
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> ChessResult<()> {
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| ChessServerError::ConfigurationError {
+        let content =
+            toml::to_string_pretty(self).map_err(|e| ChessServerError::ConfigurationError {
                 details: format!("Failed to serialize config: {}", e),
             })?;
 
-        fs::write(path, content)
-            .map_err(|e| ChessServerError::ConfigurationError {
-                details: format!("Failed to write config file: {}", e),
-            })?;
+        fs::write(path, content).map_err(|e| ChessServerError::ConfigurationError {
+            details: format!("Failed to write config file: {}", e),
+        })?;
 
         Ok(())
     }
@@ -306,7 +306,8 @@ impl ServerConfig {
             return false;
         }
 
-        name.chars().all(|c| self.security.allowed_chars_in_name.contains(c))
+        name.chars()
+            .all(|c| self.security.allowed_chars_in_name.contains(c))
     }
 }
 
@@ -315,7 +316,7 @@ pub fn load_config() -> ChessResult<ServerConfig> {
         "chess-server.toml",
         "config/chess-server.toml",
         "/etc/chess-server/config.toml",
-        "chess-server.json", 
+        "chess-server.json",
         "config/chess-server.json",
     ];
 
@@ -362,7 +363,7 @@ mod tests {
         assert!(config.is_valid_player_name("Player_123"));
         assert!(!config.is_valid_player_name(""));
         assert!(!config.is_valid_player_name("Player@Invalid"));
-        
+
         // 長すぎる名前
         let long_name = "a".repeat(config.security.max_player_name_length + 1);
         assert!(!config.is_valid_player_name(&long_name));
@@ -371,11 +372,11 @@ mod tests {
     #[test]
     fn test_config_file_operations() {
         let config = ServerConfig::development();
-        
+
         // ファイルに保存
         let temp_file = NamedTempFile::new().unwrap();
         config.save_to_file(temp_file.path()).unwrap();
-        
+
         // ファイルから読み込み
         let loaded_config = ServerConfig::from_file(temp_file.path()).unwrap();
         assert_eq!(config.server.host, loaded_config.server.host);
@@ -387,11 +388,11 @@ mod tests {
         let dev_config = ServerConfig::development();
         assert_eq!(dev_config.logging.level, "debug");
         assert!(!dev_config.security.require_authentication);
-        
+
         let prod_config = ServerConfig::production();
         assert_eq!(prod_config.logging.level, "warn");
         assert!(prod_config.security.require_authentication);
-        
+
         let test_config = ServerConfig::test();
         assert_eq!(test_config.server.port, 0);
         assert_eq!(test_config.game.max_games_per_player, 1);

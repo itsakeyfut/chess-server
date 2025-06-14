@@ -105,8 +105,13 @@ impl GameState {
     }
 
     pub fn is_player_in_game(&self, player_id: &str) -> bool {
-        self.white_player.as_ref().map_or(false, |id| id == player_id) ||
-        self.black_player.as_ref().map_or(false, |id| id == player_id)
+        self.white_player
+            .as_ref()
+            .map_or(false, |id| id == player_id)
+            || self
+                .black_player
+                .as_ref()
+                .map_or(false, |id| id == player_id)
     }
 
     pub fn get_player_color(&self, player_id: &str) -> Option<Color> {
@@ -132,7 +137,8 @@ impl GameState {
             return Err("Game is already finished".to_string());
         }
 
-        let player_color = self.get_player_color(player_id)
+        let player_color = self
+            .get_player_color(player_id)
             .ok_or("Player not in this game")?;
 
         if player_color != self.board.get_to_move() {
@@ -216,8 +222,8 @@ impl GameState {
             }
         }
 
-        Self::is_insufficient_material_for_color(&white_pieces) &&
-        Self::is_insufficient_material_for_color(&black_pieces)
+        Self::is_insufficient_material_for_color(&white_pieces)
+            && Self::is_insufficient_material_for_color(&black_pieces)
     }
 
     fn is_insufficient_material_for_color(pieces: &[PieceType]) -> bool {
@@ -227,7 +233,7 @@ impl GameState {
 
         for &piece_type in pieces {
             match piece_type {
-                PieceType::King => {},
+                PieceType::King => {}
                 PieceType::Bishop => bishops += 1,
                 PieceType::Knight => knights += 1,
                 PieceType::Pawn | PieceType::Rook | PieceType::Queen => {
@@ -256,7 +262,8 @@ impl GameState {
             return Err("Game is already finished".to_string());
         }
 
-        let player_color = self.get_player_color(player_id)
+        let player_color = self
+            .get_player_color(player_id)
             .ok_or("Player not in this game")?;
 
         self.result = GameResult::Resignation(player_color);
@@ -284,7 +291,8 @@ impl GameState {
             return Err("Game is already finished".to_string());
         }
 
-        let player_color = self.get_player_color(player_id)
+        let player_color = self
+            .get_player_color(player_id)
             .ok_or("Player not in this game")?;
 
         self.result = GameResult::Timeout(player_color);
@@ -347,11 +355,18 @@ impl GameState {
         // PGN headers
         pgn.push_str(&format!("[Event \"Chess game\"]\n"));
         pgn.push_str(&format!("[Site \"Chess Server\"]\n"));
-        pgn.push_str(&format!("[Date \"{}\"]\n", Self::format_date(self.created_at)));
-        pgn.push_str(&format!("[White \"{}\"]\n",
-            self.white_player.as_deref().unwrap_or("Unknown")));
-        pgn.push_str(&format!("[Black \"{}\"]\n",
-            self.black_player.as_deref().unwrap_or("Unknown")));
+        pgn.push_str(&format!(
+            "[Date \"{}\"]\n",
+            Self::format_date(self.created_at)
+        ));
+        pgn.push_str(&format!(
+            "[White \"{}\"]\n",
+            self.white_player.as_deref().unwrap_or("Unknown")
+        ));
+        pgn.push_str(&format!(
+            "[Black \"{}\"]\n",
+            self.black_player.as_deref().unwrap_or("Unknown")
+        ));
 
         let result_str = match &self.result {
             GameResult::Checkmate(Color::White) => "1-0",
@@ -446,13 +461,18 @@ impl GameManager {
         game_id
     }
 
-    pub fn join_game(&mut self, game_id: &str, player_id: String, color: Option<Color>) -> Result<Color, String> {
-        let game = self.games.get_mut(game_id)
-            .ok_or("Game not found")?;
+    pub fn join_game(
+        &mut self,
+        game_id: &str,
+        player_id: String,
+        color: Option<Color>,
+    ) -> Result<Color, String> {
+        let game = self.games.get_mut(game_id).ok_or("Game not found")?;
 
         let assigned_color = game.add_player(player_id.clone(), color)?;
 
-        self.player_games.entry(player_id)
+        self.player_games
+            .entry(player_id)
             .or_insert_with(Vec::new)
             .push(game_id.to_string());
 
@@ -460,8 +480,7 @@ impl GameManager {
     }
 
     pub fn leave_game(&mut self, game_id: &str, player_id: &str) -> Result<(), String> {
-        let game = self.games.get_mut(game_id)
-            .ok_or("Game not found")?;
+        let game = self.games.get_mut(game_id).ok_or("Game not found")?;
 
         game.remove_player(player_id);
 
@@ -472,9 +491,13 @@ impl GameManager {
         Ok(())
     }
 
-    pub fn make_move(&mut self, game_id: &str, player_id: &str, chess_move: Move) -> Result<(), String> {
-        let game = self.games.get_mut(game_id)
-            .ok_or("Game not found")?;
+    pub fn make_move(
+        &mut self,
+        game_id: &str,
+        player_id: &str,
+        chess_move: Move,
+    ) -> Result<(), String> {
+        let game = self.games.get_mut(game_id).ok_or("Game not found")?;
 
         game.make_move(player_id, chess_move)
     }
@@ -489,7 +512,8 @@ impl GameManager {
 
     pub fn get_player_games(&self, player_id: &str) -> Vec<&GameState> {
         if let Some(game_ids) = self.player_games.get(player_id) {
-            game_ids.iter()
+            game_ids
+                .iter()
                 .filter_map(|id| self.games.get(id))
                 .collect()
         } else {
@@ -498,7 +522,8 @@ impl GameManager {
     }
 
     pub fn get_active_games(&self) -> Vec<&GameState> {
-        self.games.values()
+        self.games
+            .values()
             .filter(|game| game.result == GameResult::Ongoing)
             .collect()
     }
@@ -516,10 +541,12 @@ impl GameManager {
 
     pub fn cleanup_finished_games(&mut self, max_age_seconds: u64) {
         let curr_time = GameState::current_timestamp();
-        let game_ids_to_remove: Vec<String> = self.games.iter()
+        let game_ids_to_remove: Vec<String> = self
+            .games
+            .iter()
             .filter(|(_, game)| {
-                game.result != GameResult::Ongoing &&
-                (curr_time - game.last_move_at) > max_age_seconds
+                game.result != GameResult::Ongoing
+                    && (curr_time - game.last_move_at) > max_age_seconds
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -534,7 +561,8 @@ impl GameManager {
     }
 
     pub fn get_active_game_count(&self) -> usize {
-        self.games.values()
+        self.games
+            .values()
             .filter(|game| game.result == GameResult::Ongoing)
             .count()
     }
@@ -564,8 +592,12 @@ mod tests {
         let mut manager = GameManager::new();
         let game_id = manager.create_game();
 
-        let color1 = manager.join_game(&game_id, "player1".to_string(), None).unwrap();
-        let color2 = manager.join_game(&game_id, "player2".to_string(), None).unwrap();
+        let color1 = manager
+            .join_game(&game_id, "player1".to_string(), None)
+            .unwrap();
+        let color2 = manager
+            .join_game(&game_id, "player2".to_string(), None)
+            .unwrap();
 
         assert_ne!(color1, color2);
 
@@ -578,14 +610,22 @@ mod tests {
         let mut manager = GameManager::new();
         let game_id = manager.create_game();
 
-        manager.join_game(&game_id, "white_player".to_string(), Some(Color::White)).unwrap();
-        manager.join_game(&game_id, "black_player".to_string(), Some(Color::Black)).unwrap();
+        manager
+            .join_game(&game_id, "white_player".to_string(), Some(Color::White))
+            .unwrap();
+        manager
+            .join_game(&game_id, "black_player".to_string(), Some(Color::Black))
+            .unwrap();
 
         let from = Position::from_algebraic("e2").unwrap();
         let to = Position::from_algebraic("e4").unwrap();
         let chess_move = Move::new(from, to);
 
-        assert!(manager.make_move(&game_id, "white_player", chess_move).is_ok());
+        assert!(
+            manager
+                .make_move(&game_id, "white_player", chess_move)
+                .is_ok()
+        );
 
         let game = manager.get_game(&game_id).unwrap();
         assert_eq!(game.get_move_count(), 1);
@@ -597,12 +637,18 @@ mod tests {
         let mut manager = GameManager::new();
         let game_id = manager.create_game();
 
-        manager.join_game(&game_id, "white_player".to_string(), Some(Color::White)).unwrap();
+        manager
+            .join_game(&game_id, "white_player".to_string(), Some(Color::White))
+            .unwrap();
 
         let from = Position::from_algebraic("e2").unwrap();
         let to = Position::from_algebraic("e5").unwrap();
         let chess_move = Move::new(from, to);
 
-        assert!(manager.make_move(&game_id, "white_player", chess_move).is_err());
+        assert!(
+            manager
+                .make_move(&game_id, "white_player", chess_move)
+                .is_err()
+        );
     }
 }

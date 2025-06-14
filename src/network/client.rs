@@ -5,12 +5,12 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, RwLock};
-use tokio::time::{timeout, Duration};
+use tokio::sync::{RwLock, mpsc};
+use tokio::time::{Duration, timeout};
 
 use super::protocol::Message;
 use crate::player::Session;
-use crate::utils::{current_timestamp, ChessResult, ChessServerError};
+use crate::utils::{ChessResult, ChessServerError, current_timestamp};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ClientState {
@@ -91,7 +91,8 @@ impl Client {
                     session_clone,
                     handler_clone,
                     tx_clone,
-                ).await;
+                )
+                .await;
             })
         };
 
@@ -161,7 +162,9 @@ impl Client {
                                     info_guard.clone()
                                 };
 
-                                let response = handler.handle_message(message, client_info, session_ref).await;
+                                let response = handler
+                                    .handle_message(message, client_info, session_ref)
+                                    .await;
 
                                 if let Some(response_message) = response {
                                     if sender.send(response_message).is_err() {
@@ -233,7 +236,8 @@ impl Client {
     }
 
     pub async fn send_message(&self, message: Message) -> ChessResult<()> {
-        self.sender.send(message)
+        self.sender
+            .send(message)
             .map_err(|_| ChessServerError::ConnectionLost)?;
         Ok(())
     }
@@ -279,7 +283,8 @@ impl Client {
 
     pub async fn is_authenticated(&self) -> bool {
         let session_guard = self.session.read().await;
-        session_guard.as_ref()
+        session_guard
+            .as_ref()
             .map(|s| s.is_authenticated)
             .unwrap_or(false)
     }
@@ -434,10 +439,11 @@ impl ClientManager {
     }
 
     pub async fn send_to_player(&self, player_id: &str, message: Message) -> ChessResult<()> {
-        let client = self.get_client_by_player(player_id).await
-            .ok_or_else(|| ChessServerError::PlayerNotFound {
+        let client = self.get_client_by_player(player_id).await.ok_or_else(|| {
+            ChessServerError::PlayerNotFound {
                 player_id: player_id.to_string(),
-            })?;
+            }
+        })?;
 
         client.send_message(message).await
     }
@@ -450,27 +456,30 @@ impl ClientManager {
                 if client.send_message(message.clone()).await.is_ok() {
                     sent_count += 1;
                 }
-            } 
+            }
         }
 
         sent_count
     }
 
     pub async fn disconnect_client(&self, client_id: &str) -> ChessResult<()> {
-        let client = self.get_client(client_id).await
-            .ok_or_else(|| ChessServerError::PlayerNotFound {
-                player_id: client_id.to_string(),
-            })?;
+        let client =
+            self.get_client(client_id)
+                .await
+                .ok_or_else(|| ChessServerError::PlayerNotFound {
+                    player_id: client_id.to_string(),
+                })?;
 
         client.disconnect().await;
         Ok(())
     }
 
     pub async fn disconnect_player(&self, player_id: &str) -> ChessResult<()> {
-        let client = self.get_client_by_player(player_id).await
-            .ok_or_else(|| ChessServerError::PlayerNotFound {
+        let client = self.get_client_by_player(player_id).await.ok_or_else(|| {
+            ChessServerError::PlayerNotFound {
                 player_id: player_id.to_string(),
-            })?;
+            }
+        })?;
 
         client.disconnect().await;
         Ok(())
@@ -567,7 +576,8 @@ impl ClientManager {
         }
 
         if stats.total_clients > 0 {
-            stats.average_session_duration = stats.total_session_duration / stats.total_clients as u64;
+            stats.average_session_duration =
+                stats.total_session_duration / stats.total_clients as u64;
         }
 
         stats
@@ -612,8 +622,8 @@ impl Default for ClientManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::net::{TcpListener, TcpStream};
     use crate::network::protocol::MessageType;
+    use tokio::net::{TcpListener, TcpStream};
 
     struct TestMessageHandler;
 
@@ -651,10 +661,10 @@ mod tests {
     async fn test_client_creation() {
         let (stream, addr) = create_test_connection().await;
         let handler = Arc::new(TestMessageHandler);
-        
+
         let client = Client::new(stream, addr, handler).await.unwrap();
         let info = client.get_info().await;
-        
+
         assert_eq!(info.address, addr);
         assert_eq!(info.state, ClientState::Connected);
         assert!(client.is_connected().await);
@@ -665,15 +675,15 @@ mod tests {
         let manager = ClientManager::new();
         let (stream, addr) = create_test_connection().await;
         let handler = Arc::new(TestMessageHandler);
-        
+
         let client = Arc::new(Client::new(stream, addr, handler).await.unwrap());
         let client_id = client.get_info().await.id.clone();
-        
+
         manager.add_client(client.clone()).await;
-        
+
         assert_eq!(manager.get_client_count().await, 1);
         assert!(manager.get_client(&client_id).await.is_some());
-        
+
         manager.remove_client(&client_id).await;
         assert_eq!(manager.get_client_count().await, 0);
     }
@@ -683,13 +693,16 @@ mod tests {
         let manager = ClientManager::new();
         let (stream, addr) = create_test_connection().await;
         let handler = Arc::new(TestMessageHandler);
-        
+
         let client = Arc::new(Client::new(stream, addr, handler).await.unwrap());
         let client_id = client.get_info().await.id.clone();
-        
+
         manager.add_client(client.clone()).await;
-        manager.associate_player(&client_id, "player123".to_string()).await.unwrap();
-        
+        manager
+            .associate_player(&client_id, "player123".to_string())
+            .await
+            .unwrap();
+
         let found_client = manager.get_client_by_player("player123").await;
         assert!(found_client.is_some());
         assert_eq!(found_client.unwrap().get_info().await.id, client_id);
