@@ -798,4 +798,69 @@ impl ServerMessageHandler {
     ) -> Option<Message> {
         Some(Message::success("Draw response recorded", request_id))
     }
+
+    async fn handle_send_message(
+        &self,
+        req: ChatMessageRequest,
+        _client_info: &crate::network::client::ClientInfo,
+        session: Option<Session>,
+        request_id: Option<String>,
+    ) -> Option<Message> {
+        let session = match session {
+            Some(s) if s.can_chat() => s,
+            _ => return Some(Message::error(
+                ChessServerError::InsufficientPermissions,
+                request_id,
+            )),
+        };
+
+        let player_manager = self.player_manager.read().await;
+        let sender = match player_manager.get_player(&session.player_id) {
+            Some(p) => p.get_display_info(),
+            None => return Some(Message::error(
+                ChessServerError::PlayerNotFound { player_id: session.player_id },
+                request_id,
+            )),
+        };
+
+        let chat_notification = Message::notification(MessageType::ChatMessage(ChatMessageNotification {
+            game_id: req.game_id.clone(),
+            sender,
+            message: req.message,
+            message_type: req.message_type,
+            timestamp: current_timestamp(),
+        }));
+
+        drop(player_manager);
+
+        if let Some(game_id) = req.game_id {
+            let game_manager = self.game_manager.read().await;
+            if let Some(game) = game_manager.get_game(&game_id) {
+                let player_ids = vec![
+                    game.white_player.clone(),
+                    game.black_player.clone(),
+                ].into_iter().flatten().collect::<Vec<_>>();
+
+                drop(game_manager);
+
+                tokio::spawn({
+                    let client_manager = Arc::clone(&self.client_manager);
+                    let notification = chat_notification.clone();
+                    async move {
+                        client_manager.send_to_players(&player_ids, notification).await;
+                    }
+                });
+            }
+        } else {
+            tokio::spawn({
+                let client_manager = Arc::clone(&self.client_manager);
+                let notification = chat_notification.clone();
+                async move {
+                    client_manager.broadcast_to_authenticated(notification).await;
+                }
+            });
+        }
+
+        Some(Message::success("Message sent", request_id))
+    }
 }
